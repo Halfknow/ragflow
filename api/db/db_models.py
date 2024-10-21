@@ -479,8 +479,10 @@ class User(DataBaseModel, UserMixin):
         return self.email
 
     def get_id(self):
-        jwt = Serializer(secret_key=SECRET_KEY)
-        return jwt.dumps(str(self.access_token))
+        # 修改以下两行
+        # jwt = Serializer(secret_key=SECRET_KEY)
+        # return jwt.dumps(str(self.access_token))
+        return str(self.access_token)
 
     class Meta:
         db_table = "user"

@@ -104,11 +104,14 @@ client_urls_prefix = [
 
 @login_manager.request_loader
 def load_user(web_request):
-    jwt = Serializer(secret_key=SECRET_KEY)
+	# 删除以下一行
+    # jwt = Serializer(secret_key=SECRET_KEY)
     authorization = web_request.headers.get("Authorization")
     if authorization:
         try:
-            access_token = str(jwt.loads(authorization))
+		        # 修改以下一行
+		        # access_token = str(jwt.loads(authorization))
+            access_token = str(authorization)
             user = UserService.query(access_token=access_token, status=StatusEnum.VALID.value)
             if user:
                 return user[0]
