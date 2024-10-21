@@ -240,8 +240,6 @@ def user_info_from_github(access_token):
 @manager.route("/logout", methods=['GET'])
 @login_required
 def log_out():
-    current_user.access_token = ""
-    current_user.save()
     logout_user()
     return get_json_result(data=True)
 
