@@ -315,7 +315,7 @@ class FileService(CommonService):
         }
         cls.save(**file)
         File2DocumentService.save(**{"id": get_uuid(), "file_id": file["id"], "document_id": doc["id"]})
-    
+
     @classmethod
     @DB.connection_context()
     def move_file(cls, file_ids, folder_id):
@@ -383,7 +383,6 @@ class FileService(CommonService):
                 err.append(file.filename + ": " + str(e))
 
         return err, files
-
 
     @classmethod
     @DB.connection_context()
@@ -457,12 +456,18 @@ class FileService(CommonService):
         if re.search(r"\.(eml)$", filename):
             return ParserType.EMAIL.value
         return default
-    
+
     @staticmethod
     def download_from_oss(oss_link):
         import requests
-        response = requests.get(oss_link)
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0"
+        }
+        response = requests.get(oss_link, headers=headers)
         if response.status_code == 200:
             return response.content
         else:
-            raise RuntimeError(f"Failed to download file from OSS: {response.status_code}")
+            raise RuntimeError(
+                f"Failed to download file from OSS: {response.status_code}"
+            )
