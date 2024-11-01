@@ -13,6 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import re
+
 from openai.lib.azure import AzureOpenAI
 from zhipuai import ZhipuAI
 from dashscope import Generation
@@ -31,7 +33,8 @@ import asyncio
 
 class Base(ABC):
     def __init__(self, key, model_name, base_url):
-        self.client = OpenAI(api_key=key, base_url=base_url)
+        timeout = int(os.environ.get('LM_TIMEOUT_SECONDS', 600))
+        self.client = OpenAI(api_key=key, base_url=base_url, timeout=timeout)
         self.model_name = model_name
 
     def chat(self, system, history, gen_conf):
@@ -66,14 +69,16 @@ class Base(ABC):
                 if not resp.choices[0].delta.content:
                     resp.choices[0].delta.content = ""
                 ans += resp.choices[0].delta.content
-                total_tokens = (
-                    (
-                            total_tokens
-                            + num_tokens_from_string(resp.choices[0].delta.content)
-                    )
-                    if not hasattr(resp, "usage") or not resp.usage
-                    else resp.usage.get("total_tokens", total_tokens)
-                )
+
+                if not hasattr(resp, "usage") or not resp.usage:
+                    total_tokens = (
+                                total_tokens
+                                + num_tokens_from_string(resp.choices[0].delta.content)
+                        )
+                elif isinstance(resp.usage, dict):
+                    total_tokens = resp.usage.get("total_tokens", total_tokens)
+                else: total_tokens = resp.usage.total_tokens
+
                 if resp.choices[0].finish_reason == "length":
                     ans += "...\nFor the content length reason, it stopped, continue?" if is_english(
                         [ans]) else "······\n由于长度的原因，回答被截断了，要继续吗？"
@@ -104,6 +109,8 @@ class XinferenceChat(Base):
         if base_url.split("/")[-1] != "v1":
             base_url = os.path.join(base_url, "v1")
         super().__init__(key, model_name, base_url)
+
+
 class HuggingFaceChat(Base):
     def __init__(self, key=None, model_name="", base_url=""):
         if not base_url:
@@ -111,6 +118,7 @@ class HuggingFaceChat(Base):
         if base_url.split("/")[-1] != "v1":
             base_url = os.path.join(base_url, "v1")
         super().__init__(key, model_name, base_url)
+
 
 class DeepSeekChat(Base):
     def __init__(self, key, model_name="deepseek-chat", base_url="https://api.deepseek.com/v1"):
@@ -216,28 +224,39 @@ class QWenChat(Base):
         self.model_name = model_name
 
     def chat(self, system, history, gen_conf):
-        from http import HTTPStatus
-        if system:
-            history.insert(0, {"role": "system", "content": system})
-        response = Generation.call(
-            self.model_name,
-            messages=history,
-            result_format='message',
-            **gen_conf
-        )
-        ans = ""
-        tk_count = 0
-        if response.status_code == HTTPStatus.OK:
-            ans += response.output.choices[0]['message']['content']
-            tk_count += response.usage.total_tokens
-            if response.output.choices[0].get("finish_reason", "") == "length":
-                ans += "...\nFor the content length reason, it stopped, continue?" if is_english(
-                    [ans]) else "······\n由于长度的原因，回答被截断了，要继续吗？"
-            return ans, tk_count
+        stream_flag = str(os.environ.get('QWEN_CHAT_BY_STREAM', 'true')).lower() == 'true'
+        if not stream_flag:
+            from http import HTTPStatus
+            if system:
+                history.insert(0, {"role": "system", "content": system})
 
-        return "**ERROR**: " + response.message, tk_count
+            response = Generation.call(
+                self.model_name,
+                messages=history,
+                result_format='message',
+                **gen_conf
+            )
+            ans = ""
+            tk_count = 0
+            if response.status_code == HTTPStatus.OK:
+                ans += response.output.choices[0]['message']['content']
+                tk_count += response.usage.total_tokens
+                if response.output.choices[0].get("finish_reason", "") == "length":
+                    ans += "...\nFor the content length reason, it stopped, continue?" if is_english(
+                        [ans]) else "······\n由于长度的原因，回答被截断了，要继续吗？"
+                return ans, tk_count
 
-    def chat_streamly(self, system, history, gen_conf):
+            return "**ERROR**: " + response.message, tk_count
+        else:
+            g = self._chat_streamly(system, history, gen_conf, incremental_output=True)
+            result_list = list(g)
+            error_msg_list = [item for item in result_list if str(item).find("**ERROR**") >= 0]
+            if len(error_msg_list) > 0:
+                return "**ERROR**: " + "".join(error_msg_list) , 0
+            else:
+                return "".join(result_list[:-1]), result_list[-1]
+
+    def _chat_streamly(self, system, history, gen_conf, incremental_output=False):
         from http import HTTPStatus
         if system:
             history.insert(0, {"role": "system", "content": system})
@@ -249,6 +268,7 @@ class QWenChat(Base):
                 messages=history,
                 result_format='message',
                 stream=True,
+                incremental_output=incremental_output,
                 **gen_conf
             )
             for resp in response:
@@ -260,12 +280,14 @@ class QWenChat(Base):
                             [ans]) else "······\n由于长度的原因，回答被截断了，要继续吗？"
                     yield ans
                 else:
-                    yield ans + "\n**ERROR**: " + resp.message if str(resp.message).find(
-                        "Access") < 0 else "Out of credit. Please set the API key in **settings > Model providers.**"
+                    yield ans + "\n**ERROR**: " + resp.message if not re.search(r" (key|quota)", str(resp.message).lower()) else "Out of credit. Please set the API key in **settings > Model providers.**"
         except Exception as e:
             yield ans + "\n**ERROR**: " + str(e)
 
         yield tk_count
+
+    def chat_streamly(self, system, history, gen_conf):
+        return self._chat_streamly(system, history, gen_conf)
 
 
 class ZhipuChat(Base):
@@ -762,10 +784,11 @@ class GeminiChat(Base):
                 ans += resp.text
                 yield ans
 
+            yield response._chunks[-1].usage_metadata.total_token_count
         except Exception as e:
             yield ans + "\n**ERROR**: " + str(e)
 
-        yield response._chunks[-1].usage_metadata.total_token_count
+        yield 0
 
 
 class GroqChat:
@@ -1227,6 +1250,7 @@ class AnthropicChat(Base):
         if "max_tokens" not in gen_conf:
             gen_conf["max_tokens"] = 4096
 
+        ans = ""
         try:
             response = self.client.messages.create(
                 model=self.model_name,
