@@ -13,8 +13,8 @@ services:
     container_name: ragflow-server
     ports:
       - ${SVR_HTTP_PORT}:9380
-      - 8080:80
-      - 4443:443
+      - 18080:80
+      - 18443:443
       - 5678:5678
     volumes:
       - ./service_conf.yaml:/ragflow/conf/service_conf.yaml
@@ -28,3 +28,5 @@ services:
     networks:
       - ragflow
     restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
