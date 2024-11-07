@@ -39,5 +39,7 @@ sdk/python/ragflow_sdk.egg-info/
 
 # Exclude downloaded dependencies
 *.deb
+*.jar
+*.jar.md5
 nltk_data/
 huggingface.co/
