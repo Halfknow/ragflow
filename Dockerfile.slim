@@ -70,7 +70,7 @@ WORKDIR /ragflow
 # Install python packages' dependencies
 # cv2 requires libGL.so.1
 RUN --mount=type=cache,id=ragflow_production_apt,target=/var/cache/apt,sharing=locked \
-    apt update && apt install -y --no-install-recommends nginx libgl1 vim less && \
+    apt update && apt install -y --no-install-recommends default-jre nginx libgl1 vim less && \
     rm -rf /var/lib/apt/lists/*
 
 COPY web web
