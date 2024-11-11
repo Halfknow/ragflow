@@ -63,9 +63,9 @@ class EsQueryer:
             rag_tokenizer.tradi2simp(
                 rag_tokenizer.strQ2B(
                     txt.lower()))).strip()
-        txt = EsQueryer.rmWWW(txt)
 
         if not self.isChinese(txt):
+            txt = EsQueryer.rmWWW(txt)
             tks = rag_tokenizer.tokenize(txt).split(" ")
             tks_w = self.tw.weights(tks)
             tks_w = [(re.sub(r"[ \\\"'^]", "", tk), w) for tk, w in tks_w]
@@ -89,6 +89,7 @@ class EsQueryer:
                 return False
             return True
 
+        txt = EsQueryer.rmWWW(txt)
         qs, keywords = [], []
         for tt in self.tw.split(txt)[:256]:  # .split(" "):
             if not tt:
@@ -165,7 +166,7 @@ class EsQueryer:
             d = {}
             if isinstance(tks, str):
                 tks = tks.split(" ")
-            for t, c in self.tw.weights(tks):
+            for t, c in self.tw.weights(tks, preprocess=False):
                 if t not in d:
                     d[t] = 0
                 d[t] += c
@@ -177,9 +178,9 @@ class EsQueryer:
 
     def similarity(self, qtwt, dtwt):
         if isinstance(dtwt, type("")):
-            dtwt = {t: w for t, w in self.tw.weights(self.tw.split(dtwt))}
+            dtwt = {t: w for t, w in self.tw.weights(self.tw.split(dtwt), preprocess=False)}
         if isinstance(qtwt, type("")):
-            qtwt = {t: w for t, w in self.tw.weights(self.tw.split(qtwt))}
+            qtwt = {t: w for t, w in self.tw.weights(self.tw.split(qtwt), preprocess=False)}
         s = 1e-9
         for k, v in qtwt.items():
             if k in dtwt:

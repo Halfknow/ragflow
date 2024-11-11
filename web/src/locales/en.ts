@@ -30,6 +30,8 @@ export default {
       warn: 'Warn',
       action: 'Action',
       s: 'S',
+      pleaseSelect: 'Please select',
+      pleaseInput: 'Please input',
     },
     login: {
       login: 'Sign in',
@@ -445,6 +447,7 @@ The above is the content you need to summarize.`,
       multiTurn: 'Multi-turn optimization',
       multiTurnTip:
         'In multi-round conversations, the query to the knowledge base is optimized. The large model will be called to consume additional tokens.',
+      howUseId: 'How to use chat ID?',
     },
     setting: {
       profile: 'Profile',
@@ -744,7 +747,7 @@ The above is the content you need to summarize.`,
       googleDescription:
         'This component is used to get search result fromhttps://www.google.com/ . Typically, it performs as a supplement to knowledgebases. Top N and SerpApi API key specifies the number of search results you need to adapt.',
       bing: 'Bing',
-      bingTip:
+      bingDescription:
         'This component is used to get search result from https://www.bing.com/. Typically, it performs as a supplement to knowledgebases. Top N and Bing Subscription-Key specifies the number of search results you need to adapt.',
       apiKey: 'API KEY',
       country: 'Country',
@@ -1023,7 +1026,17 @@ The above is the content you need to summarize.`,
       method: 'Method',
       timeout: 'Timeout',
       headers: 'Headers',
-      cleanHtml: 'Clean html',
+      cleanHtml: 'Clean HTML',
+      cleanHtmlTip:
+        'If the response is HTML formatted and only the primary content wanted, please toggle it on.',
+      reference: 'Reference',
+      input: 'Input',
+      output: 'Output',
+      parameter: 'Parameter',
+      howUseId: 'How to use agent ID?',
+      content: 'Content',
+      operationResults: 'Operation Results',
+      autosaved: 'Autosaved',
     },
     footer: {
       profile: 'All rights reserved @ React',
