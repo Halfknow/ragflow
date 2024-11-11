@@ -151,17 +151,10 @@ def load_user(web_request):
     authorization = web_request.headers.get("Authorization")
     if authorization:
         try:
-<<<<<<< HEAD
 		        # 修改以下一行
 		        # access_token = str(jwt.loads(authorization))
             access_token = str(authorization)
             user = UserService.query(access_token=access_token, status=StatusEnum.VALID.value)
-=======
-            access_token = str(jwt.loads(authorization))
-            user = UserService.query(
-                access_token=access_token, status=StatusEnum.VALID.value
-            )
->>>>>>> 88072b1e900cf69716038bba77087e19f38ee45e
             if user:
                 return user[0]
             else:

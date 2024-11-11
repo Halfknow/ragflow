@@ -352,8 +352,6 @@ def user_info_from_github(access_token):
 @manager.route("/logout", methods=["GET"])
 @login_required
 def log_out():
-<<<<<<< HEAD
-=======
     """
     User logout endpoint.
     ---
@@ -367,9 +365,6 @@ def log_out():
         schema:
           type: object
     """
-    current_user.access_token = ""
-    current_user.save()
->>>>>>> 88072b1e900cf69716038bba77087e19f38ee45e
     logout_user()
     return get_json_result(data=True)
 
