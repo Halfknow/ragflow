@@ -4,7 +4,6 @@ import { IGraph } from '@/interfaces/database/flow';
 import { useIsFetching } from '@tanstack/react-query';
 import React, {
   ChangeEvent,
-  KeyboardEventHandler,
   useCallback,
   useEffect,
   useMemo,
@@ -20,7 +19,6 @@ import {
 import { useFetchModelId, useSendMessageWithSse } from '@/hooks/logic-hooks';
 import { Variable } from '@/interfaces/database/chat';
 import api from '@/utils/api';
-import { useDebounceEffect } from 'ahooks';
 import { FormInstance, message } from 'antd';
 import { humanId } from 'human-id';
 import { lowerFirst } from 'lodash';
@@ -69,6 +67,7 @@ import { ICategorizeForm, IRelevantForm, ISwitchForm } from './interface';
 import useGraphStore, { RFState } from './store';
 import {
   buildDslComponentsByGraph,
+  generateNodeNamesWithIncreasingIndex,
   generateSwitchHandleText,
   getNodeDragHandle,
   receiveMessageError,
@@ -159,12 +158,13 @@ export const useHandleDrag = () => {
   return { handleDragStart };
 };
 
-const splitName = (name: string) => {
-  const names = name.split('_');
-  const type = names.at(0);
-  const index = Number(names.at(-1));
+export const useGetNodeName = () => {
+  const { t } = useTranslation();
 
-  return { type, index };
+  return (type: string) => {
+    const name = t(`flow.${lowerFirst(type)}`);
+    return name;
+  };
 };
 
 export const useHandleDrop = () => {
@@ -173,53 +173,12 @@ export const useHandleDrop = () => {
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance<any, any>>();
   const initializeOperatorParams = useInitializeOperatorParams();
-  const { t } = useTranslation();
+  const getNodeName = useGetNodeName();
 
   const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
   }, []);
-
-  const generateNodeName = useCallback(
-    (type: string) => {
-      const name = t(`flow.${lowerFirst(type)}`);
-      const templateNameList = nodes
-        .filter((x) => {
-          const temporaryName = x.data.name;
-
-          const { type, index } = splitName(temporaryName);
-
-          return (
-            temporaryName.match(/_/g)?.length === 1 &&
-            type === name &&
-            !isNaN(index)
-          );
-        })
-        .map((x) => {
-          const temporaryName = x.data.name;
-          const { index } = splitName(temporaryName);
-
-          return {
-            idx: index,
-            name: temporaryName,
-          };
-        })
-        .sort((a, b) => a.idx - b.idx);
-
-      let index: number = 0;
-      for (let i = 0; i < templateNameList.length; i++) {
-        const idx = templateNameList[i]?.idx;
-        const nextIdx = templateNameList[i + 1]?.idx;
-        if (idx + 1 !== nextIdx) {
-          index = idx + 1;
-          break;
-        }
-      }
-
-      return `${name}_${index}`;
-    },
-    [t, nodes],
-  );
 
   const onDrop = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
@@ -248,7 +207,7 @@ export const useHandleDrop = () => {
         },
         data: {
           label: `${type}`,
-          name: generateNodeName(type),
+          name: generateNodeNamesWithIncreasingIndex(getNodeName(type), nodes),
           form: initializeOperatorParams(type as Operator),
         },
         sourcePosition: Position.Right,
@@ -258,7 +217,7 @@ export const useHandleDrop = () => {
 
       addNode(newNode);
     },
-    [reactFlowInstance, addNode, initializeOperatorParams, generateNodeName],
+    [reactFlowInstance, getNodeName, nodes, initializeOperatorParams, addNode],
   );
 
   return { onDrop, onDragOver, setReactFlowInstance };
@@ -292,20 +251,6 @@ export const useShowDrawer = () => {
   };
 };
 
-export const useHandleKeyUp = () => {
-  const deleteEdge = useGraphStore((state) => state.deleteEdge);
-  const handleKeyUp: KeyboardEventHandler = useCallback(
-    (e) => {
-      if (e.code === 'Delete') {
-        deleteEdge();
-      }
-    },
-    [deleteEdge],
-  );
-
-  return { handleKeyUp };
-};
-
 export const useSaveGraph = () => {
   const { data } = useFetchFlow();
   const { setFlow } = useSetFlow();
@@ -321,20 +266,6 @@ export const useSaveGraph = () => {
   }, [nodes, edges, setFlow, id, data]);
 
   return { saveGraph };
-};
-
-export const useWatchGraphChange = () => {
-  const nodes = useGraphStore((state) => state.nodes);
-  const edges = useGraphStore((state) => state.edges);
-  useDebounceEffect(
-    () => {
-      // console.info('useDebounceEffect');
-    },
-    [nodes, edges],
-    {
-      wait: 1000,
-    },
-  );
 };
 
 export const useHandleFormValuesChange = (id?: string) => {
@@ -386,8 +317,6 @@ export const useFetchDataOnMount = () => {
   useEffect(() => {
     setGraphInfo(data?.dsl?.graph ?? ({} as IGraph));
   }, [setGraphInfo, data]);
-
-  useWatchGraphChange();
 
   useEffect(() => {
     refetch();
@@ -497,15 +426,15 @@ export const useSaveGraphBeforeOpeningDebugDrawer = (show: () => void) => {
   const { send } = useSendMessageWithSse(api.runCanvas);
   const handleRun = useCallback(async () => {
     const saveRet = await saveGraph();
-    if (saveRet?.retcode === 0) {
+    if (saveRet?.code === 0) {
       // Call the reset api before opening the run drawer each time
       const resetRet = await resetFlow();
       // After resetting, all previous messages will be cleared.
-      if (resetRet?.retcode === 0) {
+      if (resetRet?.code === 0) {
         // fetch prologue
         const sendRet = await send({ id });
         if (receiveMessageError(sendRet)) {
-          message.error(sendRet?.data?.retmsg);
+          message.error(sendRet?.data?.message);
         } else {
           refetch();
           show();
@@ -524,7 +453,10 @@ export const useReplaceIdWithText = (output: unknown) => {
     return getNode(id)?.data.name;
   };
 
-  return replaceIdWithText(output, getNameById);
+  return {
+    replacedOutput: replaceIdWithText(output, getNameById),
+    getNameById,
+  };
 };
 
 /**
@@ -675,4 +607,64 @@ export const useGetComponentLabelByValue = (nodeId: string) => {
     [options],
   );
   return getLabel;
+};
+
+export const useDuplicateNode = () => {
+  const duplicateNodeById = useGraphStore((store) => store.duplicateNode);
+  const getNodeName = useGetNodeName();
+
+  const duplicateNode = useCallback(
+    (id: string, label: string) => {
+      duplicateNodeById(id, getNodeName(label));
+    },
+    [duplicateNodeById, getNodeName],
+  );
+
+  return duplicateNode;
+};
+
+export const useCopyPaste = () => {
+  const nodes = useGraphStore((state) => state.nodes);
+  const duplicateNode = useDuplicateNode();
+
+  const onCopyCapture = useCallback(
+    (event: ClipboardEvent) => {
+      event.preventDefault();
+      const nodesStr = JSON.stringify(
+        nodes.filter((n) => n.selected && n.data.label !== Operator.Begin),
+      );
+
+      event.clipboardData?.setData('agent:nodes', nodesStr);
+    },
+    [nodes],
+  );
+
+  const onPasteCapture = useCallback(
+    (event: ClipboardEvent) => {
+      event.preventDefault();
+      const nodes = JSON.parse(
+        event.clipboardData?.getData('agent:nodes') || '[]',
+      ) as Node[] | undefined;
+      if (nodes) {
+        nodes.forEach((n) => {
+          duplicateNode(n.id, n.data.label);
+        });
+      }
+    },
+    [duplicateNode],
+  );
+
+  useEffect(() => {
+    window.addEventListener('copy', onCopyCapture);
+    return () => {
+      window.removeEventListener('copy', onCopyCapture);
+    };
+  }, [onCopyCapture]);
+
+  useEffect(() => {
+    window.addEventListener('paste', onPasteCapture);
+    return () => {
+      window.removeEventListener('paste', onPasteCapture);
+    };
+  }, [onPasteCapture]);
 };

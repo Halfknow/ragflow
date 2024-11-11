@@ -11,7 +11,6 @@ import { Operator } from '../constant';
 import FlowDrawer from '../flow-drawer';
 import {
   useHandleDrop,
-  useHandleKeyUp,
   useSelectCanvasData,
   useShowDrawer,
   useValidateConnection,
@@ -87,7 +86,6 @@ function FlowCanvas({ chatDrawerVisible, hideChatDrawer }: IProps) {
 
   const { onDrop, onDragOver, setReactFlowInstance } = useHandleDrop();
 
-  const { handleKeyUp } = useHandleKeyUp();
   useWatchNodeFormDataChange();
 
   return (
@@ -127,7 +125,6 @@ function FlowCanvas({ chatDrawerVisible, hideChatDrawer }: IProps) {
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         onInit={setReactFlowInstance}
-        onKeyUp={handleKeyUp}
         onSelectionChange={onSelectionChange}
         nodeOrigin={[0.5, 0]}
         isValidConnection={isValidConnection}
@@ -141,6 +138,19 @@ function FlowCanvas({ chatDrawerVisible, hideChatDrawer }: IProps) {
             strokeWidth: 2,
             stroke: 'rgb(202 197 245)',
           },
+        }}
+        deleteKeyCode={['Delete', 'Backspace']}
+        onPaste={(...params) => {
+          console.info('onPaste:', ...params);
+        }}
+        onPasteCapture={(...params) => {
+          console.info('onPasteCapture:', ...params);
+        }}
+        onCopy={(...params) => {
+          console.info('onCopy:', ...params);
+        }}
+        onCopyCapture={(...params) => {
+          console.info('onCopyCapture:', ...params);
         }}
       >
         <Background />

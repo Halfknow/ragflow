@@ -30,6 +30,8 @@ export default {
       warn: '提醒',
       action: '操作',
       s: '秒',
+      pleaseSelect: '请选择',
+      pleaseInput: '请输入',
     },
     login: {
       login: '登录',
@@ -431,6 +433,7 @@ export default {
       multiTurn: '多轮对话优化',
       multiTurnTip:
         '在多轮对话的中，对去知识库查询的问题进行优化。会调用大模型额外消耗token。',
+      howUseId: '如何使用聊天ID？',
     },
     setting: {
       profile: '概要',
@@ -673,7 +676,7 @@ export default {
       createFromTemplates: '从模板创建',
       retrieval: '知识检索',
       generate: '生成回答',
-      answer: '人机交互',
+      answer: '对话',
       categorize: '问题分类',
       relevant: '是否相关',
       rewriteQuestion: '问题优化',
@@ -717,7 +720,7 @@ export default {
       googleDescription:
         '此组件用于从https://www.google.com/获取搜索结果。通常，它作为知识库的补充。Top N 和 SerpApi API 密钥指定您需要调整的搜索结果数量。',
       bing: 'Bing',
-      bingTip:
+      bingDescription:
         '此组件用于从 https://www.bing.com/ 获取搜索结果。通常，它作为知识库的补充。Top N 和 Bing Subscription-Key 指定您需要调整的搜索结果数量。',
       apiKey: 'API KEY',
       country: '国家',
@@ -992,7 +995,15 @@ export default {
       method: '方法',
       timeout: '超时',
       headers: '请求头',
-      cleanHtml: '清除 html',
+      cleanHtml: '清除 HTML',
+      cleanHtmlTip: '如果响应是 HTML 格式且只需要主要内容，请将其打开。',
+      reference: '引用',
+      input: '输入',
+      output: '输出',
+      parameter: '参数',
+      howUseId: '如何使用Agent ID？',
+      content: '内容',
+      operationResults: '运行结果',
     },
     footer: {
       profile: 'All rights reserved @ React',
