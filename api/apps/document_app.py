@@ -69,7 +69,6 @@ def upload():
     err, files = FileService.upload_document(kb, file_objs, current_user.id)
     if err:
         return get_json_result(
-<<<<<<< HEAD
             data=False, retmsg="\n".join(err), retcode=RetCode.SERVER_ERROR)
     
     # 修改以下一行
@@ -104,10 +103,6 @@ def upload_oss():
     
     doc_ids = [file[0].get("id") for file in files]
     return get_json_result(data={"success": True, "doc_ids": doc_ids})
-=======
-            data=False, message="\n".join(err), code=RetCode.SERVER_ERROR)
-    return get_json_result(data=True)
->>>>>>> 88072b1e900cf69716038bba77087e19f38ee45e
 
 
 @manager.route('/web_crawl', methods=['POST'])
