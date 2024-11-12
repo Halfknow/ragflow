@@ -352,6 +352,19 @@ def user_info_from_github(access_token):
 @manager.route("/logout", methods=["GET"])
 @login_required
 def log_out():
+    """
+    User logout endpoint.
+    ---
+    tags:
+      - User
+    security:
+      - ApiKeyAuth: []
+    responses:
+      200:
+        description: Logout successful.
+        schema:
+          type: object
+    """
     logout_user()
     return get_json_result(data=True)
 

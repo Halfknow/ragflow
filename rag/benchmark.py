@@ -30,16 +30,18 @@ from rag.utils.es_conn import ELASTICSEARCH
 from ranx import evaluate
 import pandas as pd
 from tqdm import tqdm
+from ranx import Qrels, Run
 
 
 class Benchmark:
     def __init__(self, kb_id):
-        e, kb = KnowledgebaseService.get_by_id(kb_id)
-        self.similarity_threshold = kb.similarity_threshold
-        self.vector_similarity_weight = kb.vector_similarity_weight
-        self.embd_mdl = LLMBundle(kb.tenant_id, LLMType.EMBEDDING, llm_name=kb.embd_id, lang=kb.language)
+        e, self.kb = KnowledgebaseService.get_by_id(kb_id)
+        self.similarity_threshold = self.kb.similarity_threshold
+        self.vector_similarity_weight = self.kb.vector_similarity_weight
+        self.embd_mdl = LLMBundle(self.kb.tenant_id, LLMType.EMBEDDING, llm_name=self.kb.embd_id, lang=self.kb.language)
 
     def _get_benchmarks(self, query, dataset_idxnm, count=16):
+
         req = {"question": query, "size": count, "vector": True, "similarity": self.similarity_threshold}
         sres = retrievaler.search(req, search.index_name(dataset_idxnm), self.embd_mdl)
         return sres
@@ -48,11 +50,15 @@ class Benchmark:
         run = defaultdict(dict)
         query_list = list(qrels.keys())
         for query in query_list:
-            sres = self._get_benchmarks(query, dataset_idxnm)
-            sim, _, _ = retrievaler.rerank(sres, query, 1 - self.vector_similarity_weight,
-                                           self.vector_similarity_weight)
-            for index, id in enumerate(sres.ids):
-                run[query][id] = sim[index]
+
+            ranks = retrievaler.retrieval(query, self.embd_mdl,
+                                          dataset_idxnm, [self.kb.id], 1, 30,
+                           0.0, self.vector_similarity_weight)
+            for c in ranks["chunks"]:
+                if "vector" in c:
+                    del c["vector"]
+                run[query][c["chunk_id"]] = c["similarity"]
+
         return run
 
     def embedding(self, docs, batch_size=16):
@@ -99,7 +105,10 @@ class Benchmark:
                 query = data.iloc[i]['query']
                 for rel, text in zip(data.iloc[i]['passages']['is_selected'], data.iloc[i]['passages']['passage_text']):
                     d = {
-                        "id": get_uuid()
+                        "id": get_uuid(),
+                        "kb_id": self.kb.id,
+                        "docnm_kwd": "xxxxx",
+                        "doc_id": "ksksks"
                     }
                     tokenize(d, text, "english")
                     docs.append(d)
@@ -131,7 +140,10 @@ class Benchmark:
                 for rel, text in zip(data.iloc[i]["search_results"]['rank'],
                                      data.iloc[i]["search_results"]['search_context']):
                     d = {
-                        "id": get_uuid()
+                        "id": get_uuid(),
+                        "kb_id": self.kb.id,
+                        "docnm_kwd": "xxxxx",
+                        "doc_id": "ksksks"
                     }
                     tokenize(d, text, "english")
                     docs.append(d)
@@ -176,7 +188,10 @@ class Benchmark:
                 text = corpus_total[tmp_data.iloc[i]['docid']]
                 rel = tmp_data.iloc[i]['relevance']
                 d = {
-                    "id": get_uuid()
+                    "id": get_uuid(),
+                    "kb_id": self.kb.id,
+                    "docnm_kwd": "xxxxx",
+                    "doc_id": "ksksks"
                 }
                 tokenize(d, text, 'english')
                 docs.append(d)
@@ -198,7 +213,7 @@ class Benchmark:
         for run_i in tqdm(range(len(run_keys)), desc="Calculating ndcg@10 for single query"):
             key = run_keys[run_i]
             keep_result.append({'query': key, 'qrel': qrels[key], 'run': run[key],
-                                'ndcg@10': evaluate({key: qrels[key]}, {key: run[key]}, "ndcg@10")})
+                                'ndcg@10': evaluate(Qrels({key: qrels[key]}), Run({key: run[key]}), "ndcg@10")})
         keep_result = sorted(keep_result, key=lambda kk: kk['ndcg@10'])
         with open(os.path.join(file_path, dataset + 'result.md'), 'w', encoding='utf-8') as f:
             f.write('## Score For Every Query\n')
@@ -208,18 +223,20 @@ class Benchmark:
                 scores = sorted(scores, key=lambda kk: kk[1])
                 for score in scores[:10]:
                     f.write('- text: ' + str(texts[score[0]]) + '\t qrel: ' + str(score[1]) + '\n')
+        json.dump(qrels, open(os.path.join(file_path, dataset + '.qrels.json'), "w+"), indent=2)
+        json.dump(run, open(os.path.join(file_path, dataset + '.run.json'), "w+"), indent=2)
         print(os.path.join(file_path, dataset + '_result.md'), 'Saved!')
 
     def __call__(self, dataset, file_path, miracl_corpus=''):
         if dataset == "ms_marco_v1.1":
             qrels, texts = self.ms_marco_index(file_path, "benchmark_ms_marco_v1.1")
             run = self._get_retrieval(qrels, "benchmark_ms_marco_v1.1")
-            print(dataset, evaluate(qrels, run, ["ndcg@10", "map@5", "mrr"]))
+            print(dataset, evaluate(Qrels(qrels), Run(run), ["ndcg@10", "map@5", "mrr"]))
             self.save_results(qrels, run, texts, dataset, file_path)
         if dataset == "trivia_qa":
             qrels, texts = self.trivia_qa_index(file_path, "benchmark_trivia_qa")
             run = self._get_retrieval(qrels, "benchmark_trivia_qa")
-            print(dataset, evaluate(qrels, run, ["ndcg@10", "map@5", "mrr"]))
+            print(dataset, evaluate((qrels), Run(run), ["ndcg@10", "map@5", "mrr"]))
             self.save_results(qrels, run, texts, dataset, file_path)
         if dataset == "miracl":
             for lang in ['ar', 'bn', 'de', 'en', 'es', 'fa', 'fi', 'fr', 'hi', 'id', 'ja', 'ko', 'ru', 'sw', 'te', 'th',
@@ -240,7 +257,7 @@ class Benchmark:
                                                  os.path.join(miracl_corpus, 'miracl-corpus-v1.0-' + lang),
                                                  "benchmark_miracl_" + lang)
                 run = self._get_retrieval(qrels, "benchmark_miracl_" + lang)
-                print(dataset, evaluate(qrels, run, ["ndcg@10", "map@5", "mrr"]))
+                print(dataset, evaluate(Qrels(qrels), Run(run), ["ndcg@10", "map@5", "mrr"]))
                 self.save_results(qrels, run, texts, dataset, file_path)
 
 

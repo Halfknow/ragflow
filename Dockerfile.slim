@@ -26,9 +26,21 @@ RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple &&
 
 # https://forum.aspose.com/t/aspose-slides-for-net-no-usable-version-of-libssl-found-with-linux-server/271344/13
 # aspose-slides on linux/arm64 is unavailable
+<<<<<<< HEAD
+<<<<<<< HEAD
+RUN if [ "$(uname -m)" = "x86_64" ]; then \
+        curl -o libssl1.deb http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb && dpkg -i libssl1.deb && rm -f libssl1.deb; \
+    elif [ "$(uname -m)" = "aarch64" ]; then \
+        curl -o libssl1.deb http://ports.ubuntu.com/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_arm64.deb && dpkg -i libssl1.deb && rm -f libssl1.deb; \
+=======
+RUN if [ "${ARCH}" = "amd64" ]; then \
+        curl -o libssl1.deb http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb && dpkg -i libssl1.deb && rm -f libssl1.deb; \
+>>>>>>> 078be4dfc26ea0366a2ffd84435ec29976ceaf7d
+=======
 RUN --mount=type=bind,source=libssl1.1_1.1.1f-1ubuntu2_amd64.deb,target=/root/libssl1.1_1.1.1f-1ubuntu2_amd64.deb \
     if [ "${ARCH}" = "amd64" ]; then \
         dpkg -i /root/libssl1.1_1.1.1f-1ubuntu2_amd64.deb; \
+>>>>>>> 88072b1e900cf69716038bba77087e19f38ee45e
     fi
 
 ENV PYTHONDONTWRITEBYTECODE=1 DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
