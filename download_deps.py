@@ -4,6 +4,9 @@ from huggingface_hub import snapshot_download
 import nltk
 import os
 import urllib.request
+import ssl
+
+ssl._create_default_https_context = ssl._create_unverified_context
 
 urls = [
     "http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb",
@@ -14,10 +17,10 @@ urls = [
 repos = [
     "InfiniFlow/text_concat_xgb_v1.0",
     "InfiniFlow/deepdoc",
-    "BAAI/bge-large-zh-v1.5",
-    "BAAI/bge-reranker-v2-m3",
-    "maidalun1020/bce-embedding-base_v1",
-    "maidalun1020/bce-reranker-base_v1",
+    # "BAAI/bge-large-zh-v1.5",
+    # "BAAI/bge-reranker-v2-m3",
+    # "maidalun1020/bce-embedding-base_v1",
+    # "maidalun1020/bce-reranker-base_v1",
 ]
 
 def download_model(repo_id):
