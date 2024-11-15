@@ -5,6 +5,7 @@ Reference:
  - [graphrag](https://github.com/microsoft/graphrag)
 """
 
+import logging
 import argparse
 import json
 import re
@@ -17,7 +18,6 @@ import tiktoken
 from graphrag.claim_prompt import CLAIM_EXTRACTION_PROMPT, CONTINUE_PROMPT, LOOP_PROMPT
 from rag.llm.chat_model import Base as CompletionLLM
 from graphrag.utils import ErrorHandlerFn, perform_variable_replacements
-from api.utils.log_utils import logger
 
 DEFAULT_TUPLE_DELIMITER = "<|>"
 DEFAULT_RECORD_DELIMITER = "##"
@@ -126,7 +126,7 @@ class ClaimExtractor:
                 ]
                 source_doc_map[document_id] = text
             except Exception as e:
-                logger.exception("error extracting claim")
+                logging.exception("error extracting claim")
                 self._on_error(
                     e,
                     traceback.format_exc(),
@@ -252,17 +252,17 @@ if __name__ == "__main__":
 
     from api.db import LLMType
     from api.db.services.llm_service import LLMBundle
-    from api.settings import retrievaler
+    from api import settings
     from api.db.services.knowledgebase_service import KnowledgebaseService
 
     kb_ids = KnowledgebaseService.get_kb_ids(args.tenant_id)
 
     ex = ClaimExtractor(LLMBundle(args.tenant_id, LLMType.CHAT))
-    docs = [d["content_with_weight"] for d in retrievaler.chunk_list(args.doc_id, args.tenant_id, kb_ids, max_count=12, fields=["content_with_weight"])]
+    docs = [d["content_with_weight"] for d in settings.retrievaler.chunk_list(args.doc_id, args.tenant_id, kb_ids, max_count=12, fields=["content_with_weight"])]
     info = {
         "input_text": docs,
         "entity_specs": "organization, person",
         "claim_description": ""
     }
     claim = ex(info)
-    logger.info(json.dumps(claim.output, ensure_ascii=False, indent=2))
+    logging.info(json.dumps(claim.output, ensure_ascii=False, indent=2))

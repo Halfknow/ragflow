@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License
 #
+import os.path
 import pathlib
 import re
 
@@ -33,10 +34,10 @@ from api.utils.api_utils import server_error_response, get_data_error_result, va
 from api.utils import get_uuid
 from api.db import FileType, TaskStatus, ParserType, FileSource
 from api.db.services.document_service import DocumentService, doc_upload_and_parse
-from api.settings import RetCode, docStoreConn
+from api import settings
 from api.utils.api_utils import get_json_result
 from rag.utils.storage_factory import STORAGE_IMPL
-from api.utils.file_utils import filename_type, thumbnail
+from api.utils.file_utils import filename_type, thumbnail, get_project_base_directory
 from api.utils.web_utils import html2pdf, is_valid_url
 from api.constants import IMG_BASE64_PREFIX
 
@@ -48,16 +49,16 @@ def upload():
     kb_id = request.form.get("kb_id")
     if not kb_id:
         return get_json_result(
-            data=False, message='Lack of "KB ID"', code=RetCode.ARGUMENT_ERROR)
+            data=False, message='Lack of "KB ID"', code=settings.RetCode.ARGUMENT_ERROR)
     if 'file' not in request.files:
         return get_json_result(
-            data=False, message='No file part!', code=RetCode.ARGUMENT_ERROR)
+            data=False, message='No file part!', code=settings.RetCode.ARGUMENT_ERROR)
 
     file_objs = request.files.getlist('file')
     for file_obj in file_objs:
         if file_obj.filename == '':
             return get_json_result(
-                data=False, message='No file selected!', code=RetCode.ARGUMENT_ERROR)
+                data=False, message='No file selected!', code=settings.RetCode.ARGUMENT_ERROR)
 
     e, kb = KnowledgebaseService.get_by_id(kb_id)
     if not e:
@@ -111,12 +112,12 @@ def web_crawl():
     kb_id = request.form.get("kb_id")
     if not kb_id:
         return get_json_result(
-            data=False, message='Lack of "KB ID"', code=RetCode.ARGUMENT_ERROR)
+            data=False, message='Lack of "KB ID"', code=settings.RetCode.ARGUMENT_ERROR)
     name = request.form.get("name")
     url = request.form.get("url")
     if not is_valid_url(url):
         return get_json_result(
-            data=False, message='The URL format is invalid', code=RetCode.ARGUMENT_ERROR)
+            data=False, message='The URL format is invalid', code=settings.RetCode.ARGUMENT_ERROR)
     e, kb = KnowledgebaseService.get_by_id(kb_id)
     if not e:
         raise LookupError("Can't find this knowledgebase!")
@@ -178,7 +179,7 @@ def create():
     kb_id = req["kb_id"]
     if not kb_id:
         return get_json_result(
-            data=False, message='Lack of "KB ID"', code=RetCode.ARGUMENT_ERROR)
+            data=False, message='Lack of "KB ID"', code=settings.RetCode.ARGUMENT_ERROR)
 
     try:
         e, kb = KnowledgebaseService.get_by_id(kb_id)
@@ -212,7 +213,7 @@ def list_docs():
     kb_id = request.args.get("kb_id")
     if not kb_id:
         return get_json_result(
-            data=False, message='Lack of "KB ID"', code=RetCode.ARGUMENT_ERROR)
+            data=False, message='Lack of "KB ID"', code=settings.RetCode.ARGUMENT_ERROR)
     tenants = UserTenantService.query(user_id=current_user.id)
     for tenant in tenants:
         if KnowledgebaseService.query(
@@ -221,7 +222,7 @@ def list_docs():
     else:
         return get_json_result(
             data=False, message='Only owner of knowledgebase authorized for this operation.',
-            code=RetCode.OPERATING_ERROR)
+            code=settings.RetCode.OPERATING_ERROR)
     keywords = request.args.get("keywords", "")
 
     page_number = int(request.args.get("page", 1))
@@ -251,19 +252,19 @@ def docinfos():
             return get_json_result(
                 data=False,
                 message='No authorization.',
-                code=RetCode.AUTHENTICATION_ERROR
+                code=settings.RetCode.AUTHENTICATION_ERROR
             )
     docs = DocumentService.get_by_ids(doc_ids)
     return get_json_result(data=list(docs.dicts()))
 
 
 @manager.route('/thumbnails', methods=['GET'])
-#@login_required
+# @login_required
 def thumbnails():
     doc_ids = request.args.get("doc_ids").split(",")
     if not doc_ids:
         return get_json_result(
-            data=False, message='Lack of "Document ID"', code=RetCode.ARGUMENT_ERROR)
+            data=False, message='Lack of "Document ID"', code=settings.RetCode.ARGUMENT_ERROR)
 
     try:
         docs = DocumentService.get_thumbnails(doc_ids)
@@ -286,13 +287,13 @@ def change_status():
         return get_json_result(
             data=False,
             message='"Status" must be either 0 or 1!',
-            code=RetCode.ARGUMENT_ERROR)
+            code=settings.RetCode.ARGUMENT_ERROR)
 
     if not DocumentService.accessible(req["doc_id"], current_user.id):
         return get_json_result(
             data=False,
             message='No authorization.',
-            code=RetCode.AUTHENTICATION_ERROR)
+            code=settings.RetCode.AUTHENTICATION_ERROR)
 
     try:
         e, doc = DocumentService.get_by_id(req["doc_id"])
@@ -309,7 +310,8 @@ def change_status():
                 message="Database error (Document update)!")
 
         status = int(req["status"])
-        docStoreConn.update({"doc_id": req["doc_id"]}, {"available_int": status}, search.index_name(kb.tenant_id), doc.kb_id)
+        settings.docStoreConn.update({"doc_id": req["doc_id"]}, {"available_int": status},
+                                     search.index_name(kb.tenant_id), doc.kb_id)
         return get_json_result(data=True)
     except Exception as e:
         return server_error_response(e)
@@ -328,7 +330,7 @@ def rm():
             return get_json_result(
                 data=False,
                 message='No authorization.',
-                code=RetCode.AUTHENTICATION_ERROR
+                code=settings.RetCode.AUTHENTICATION_ERROR
             )
 
     root_folder = FileService.get_root_folder(current_user.id)
@@ -359,7 +361,7 @@ def rm():
             errors += str(e)
 
     if errors:
-        return get_json_result(data=False, message=errors, code=RetCode.SERVER_ERROR)
+        return get_json_result(data=False, message=errors, code=settings.RetCode.SERVER_ERROR)
 
     return get_json_result(data=True)
 
@@ -374,7 +376,7 @@ def run():
             return get_json_result(
                 data=False,
                 message='No authorization.',
-                code=RetCode.AUTHENTICATION_ERROR
+                code=settings.RetCode.AUTHENTICATION_ERROR
             )
     try:
         for id in req["doc_ids"]:
@@ -391,8 +393,8 @@ def run():
             e, doc = DocumentService.get_by_id(id)
             if not e:
                 return get_data_error_result(message="Document not found!")
-            if docStoreConn.indexExist(search.index_name(tenant_id), doc.kb_id):
-                docStoreConn.delete({"doc_id": id}, search.index_name(tenant_id), doc.kb_id)
+            if settings.docStoreConn.indexExist(search.index_name(tenant_id), doc.kb_id):
+                settings.docStoreConn.delete({"doc_id": id}, search.index_name(tenant_id), doc.kb_id)
 
             if str(req["run"]) == TaskStatus.RUNNING.value:
                 TaskService.filter_delete([Task.doc_id == id])
@@ -416,7 +418,7 @@ def rename():
         return get_json_result(
             data=False,
             message='No authorization.',
-            code=RetCode.AUTHENTICATION_ERROR
+            code=settings.RetCode.AUTHENTICATION_ERROR
         )
     try:
         e, doc = DocumentService.get_by_id(req["doc_id"])
@@ -427,7 +429,7 @@ def rename():
             return get_json_result(
                 data=False,
                 message="The extension of file can't be changed",
-                code=RetCode.ARGUMENT_ERROR)
+                code=settings.RetCode.ARGUMENT_ERROR)
         for d in DocumentService.query(name=req["name"], kb_id=doc.kb_id):
             if d.name == req["name"]:
                 return get_data_error_result(
@@ -483,7 +485,7 @@ def change_parser():
         return get_json_result(
             data=False,
             message='No authorization.',
-            code=RetCode.AUTHENTICATION_ERROR
+            code=settings.RetCode.AUTHENTICATION_ERROR
         )
     try:
         e, doc = DocumentService.get_by_id(req["doc_id"])
@@ -516,8 +518,8 @@ def change_parser():
             tenant_id = DocumentService.get_tenant_id(req["doc_id"])
             if not tenant_id:
                 return get_data_error_result(message="Tenant not found!")
-            if docStoreConn.indexExist(search.index_name(tenant_id), doc.kb_id):
-                docStoreConn.delete({"doc_id": doc.id}, search.index_name(tenant_id), doc.kb_id)
+            if settings.docStoreConn.indexExist(search.index_name(tenant_id), doc.kb_id):
+                settings.docStoreConn.delete({"doc_id": doc.id}, search.index_name(tenant_id), doc.kb_id)
 
         return get_json_result(data=True)
     except Exception as e:
@@ -542,13 +544,13 @@ def get_image(image_id):
 def upload_and_parse():
     if 'file' not in request.files:
         return get_json_result(
-            data=False, message='No file part!', code=RetCode.ARGUMENT_ERROR)
+            data=False, message='No file part!', code=settings.RetCode.ARGUMENT_ERROR)
 
     file_objs = request.files.getlist('file')
     for file_obj in file_objs:
         if file_obj.filename == '':
             return get_json_result(
-                data=False, message='No file selected!', code=RetCode.ARGUMENT_ERROR)
+                data=False, message='No file selected!', code=settings.RetCode.ARGUMENT_ERROR)
 
     doc_ids = doc_upload_and_parse(request.form.get("conversation_id"), file_objs, current_user.id)
 
@@ -558,25 +560,35 @@ def upload_and_parse():
 @manager.route('/parse', methods=['POST'])
 @login_required
 def parse():
-    url = request.json.get("url")
+    url = request.json.get("url") if request.json else ""
     if url:
         if not is_valid_url(url):
             return get_json_result(
-                data=False, message='The URL format is invalid', code=RetCode.ARGUMENT_ERROR)
+                data=False, message='The URL format is invalid', code=settings.RetCode.ARGUMENT_ERROR)
+        download_path = os.path.join(get_project_base_directory(), "logs/downloads")
+        os.makedirs(download_path, exist_ok=True)
         from selenium.webdriver import Chrome, ChromeOptions
         options = ChromeOptions()
         options.add_argument('--headless')
         options.add_argument('--disable-gpu')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
+        options.add_experimental_option('prefs', {
+            'download.default_directory': download_path,
+            'download.prompt_for_download': False,
+            'download.directory_upgrade': True,
+            'safebrowsing.enabled': True
+        })
         driver = Chrome(options=options)
         driver.get(url)
-        sections = RAGFlowHtmlParser()("", binary=driver.page_source)
+        print(driver.get_downloadable_files())
+        sections = RAGFlowHtmlParser().parser_txt(driver.page_source)
+        driver.close()
         return get_json_result(data="\n".join(sections))
 
     if 'file' not in request.files:
         return get_json_result(
-            data=False, message='No file part!', code=RetCode.ARGUMENT_ERROR)
+            data=False, message='No file part!', code=settings.RetCode.ARGUMENT_ERROR)
 
     file_objs = request.files.getlist('file')
     txt = FileService.parse_docs(file_objs, current_user.id)

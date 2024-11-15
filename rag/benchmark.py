@@ -23,10 +23,11 @@ from collections import defaultdict
 from api.db import LLMType
 from api.db.services.llm_service import LLMBundle
 from api.db.services.knowledgebase_service import KnowledgebaseService
-from api.settings import retrievaler, docStoreConn
+from api import settings
 from api.utils import get_uuid
 from rag.nlp import tokenize, search
 from ranx import evaluate
+from ranx import Qrels, Run
 import pandas as pd
 from tqdm import tqdm
 
@@ -51,7 +52,7 @@ class Benchmark:
         run = defaultdict(dict)
         query_list = list(qrels.keys())
         for query in query_list:
-            ranks = retrievaler.retrieval(query, self.embd_mdl, self.tenant_id, [self.kb.id], 1, 30,
+            ranks = settings.retrievaler.retrieval(query, self.embd_mdl, self.tenant_id, [self.kb.id], 1, 30,
                                             0.0, self.vector_similarity_weight)
             if len(ranks["chunks"]) == 0:
                 print(f"deleted query: {query}")
@@ -80,9 +81,9 @@ class Benchmark:
     def init_index(self, vector_size: int):
         if self.initialized_index:
             return
-        if docStoreConn.indexExist(self.index_name, self.kb_id):
-            docStoreConn.deleteIdx(self.index_name, self.kb_id)
-        docStoreConn.createIdx(self.index_name, self.kb_id, vector_size)
+        if settings.docStoreConn.indexExist(self.index_name, self.kb_id):
+            settings.docStoreConn.deleteIdx(self.index_name, self.kb_id)
+        settings.docStoreConn.createIdx(self.index_name, self.kb_id, vector_size)
         self.initialized_index = True
 
     def ms_marco_index(self, file_path, index_name):
@@ -117,13 +118,13 @@ class Benchmark:
                     docs_count += len(docs)
                     docs, vector_size = self.embedding(docs)
                     self.init_index(vector_size)
-                    docStoreConn.insert(docs, self.index_name, self.kb_id)
+                    settings.docStoreConn.insert(docs, self.index_name, self.kb_id)
                     docs = []
 
         if docs:
             docs, vector_size = self.embedding(docs)
             self.init_index(vector_size)
-            docStoreConn.insert(docs, self.index_name, self.kb_id)
+            settings.docStoreConn.insert(docs, self.index_name, self.kb_id)
         return qrels, texts
 
     def trivia_qa_index(self, file_path, index_name):
@@ -158,12 +159,12 @@ class Benchmark:
                     docs_count += len(docs)
                     docs, vector_size = self.embedding(docs)
                     self.init_index(vector_size)
-                    docStoreConn.insert(docs,self.index_name)
+                    settings.docStoreConn.insert(docs,self.index_name)
                     docs = []
 
         docs, vector_size = self.embedding(docs)
         self.init_index(vector_size)
-        docStoreConn.insert(docs, self.index_name)
+        settings.docStoreConn.insert(docs, self.index_name)
         return qrels, texts
 
     def miracl_index(self, file_path, corpus_path, index_name):
@@ -213,12 +214,12 @@ class Benchmark:
                     docs_count += len(docs)
                     docs, vector_size = self.embedding(docs)
                     self.init_index(vector_size)
-                    docStoreConn.insert(docs, self.index_name)
+                    settings.docStoreConn.insert(docs, self.index_name)
                     docs = []
 
         docs, vector_size = self.embedding(docs)
         self.init_index(vector_size)
-        docStoreConn.insert(docs, self.index_name)
+        settings.docStoreConn.insert(docs, self.index_name)
         return qrels, texts
 
     def save_results(self, qrels, run, texts, dataset, file_path):
@@ -247,14 +248,14 @@ class Benchmark:
             self.index_name = search.index_name(self.tenant_id)
             qrels, texts = self.ms_marco_index(file_path, "benchmark_ms_marco_v1.1")
             run = self._get_retrieval(qrels)
-            print(dataset, evaluate(qrels, run, ["ndcg@10", "map@5", "mrr"]))
+            print(dataset, evaluate(Qrels(qrels), Run(run), ["ndcg@10", "map@5", "mrr@10"]))
             self.save_results(qrels, run, texts, dataset, file_path)
         if dataset == "trivia_qa":
             self.tenant_id = "benchmark_trivia_qa"
             self.index_name = search.index_name(self.tenant_id)
             qrels, texts = self.trivia_qa_index(file_path, "benchmark_trivia_qa")
             run = self._get_retrieval(qrels)
-            print(dataset, evaluate(qrels, run, ["ndcg@10", "map@5", "mrr"]))
+            print(dataset, evaluate(Qrels(qrels), Run(run), ["ndcg@10", "map@5", "mrr@10"]))
             self.save_results(qrels, run, texts, dataset, file_path)
         if dataset == "miracl":
             for lang in ['ar', 'bn', 'de', 'en', 'es', 'fa', 'fi', 'fr', 'hi', 'id', 'ja', 'ko', 'ru', 'sw', 'te', 'th',
@@ -278,7 +279,7 @@ class Benchmark:
                                                  os.path.join(miracl_corpus, 'miracl-corpus-v1.0-' + lang),
                                                  "benchmark_miracl_" + lang)
                 run = self._get_retrieval(qrels)
-                print(dataset, evaluate(qrels, run, ["ndcg@10", "map@5", "mrr"]))
+                print(dataset, evaluate(Qrels(qrels), Run(run), ["ndcg@10", "map@5", "mrr@10"]))
                 self.save_results(qrels, run, texts, dataset, file_path)
 
 

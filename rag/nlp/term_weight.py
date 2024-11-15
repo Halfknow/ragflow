@@ -14,6 +14,7 @@
 #  limitations under the License.
 #
 
+import logging
 import math
 import json
 import re
@@ -21,7 +22,6 @@ import os
 import numpy as np
 from rag.nlp import rag_tokenizer
 from api.utils.file_utils import get_project_base_directory
-from api.utils.log_utils import logger
 
 
 class Dealer:
@@ -83,11 +83,11 @@ class Dealer:
         try:
             self.ne = json.load(open(os.path.join(fnm, "ner.json"), "r"))
         except Exception:
-            logger.warning("Load ner.json FAIL!")
+            logging.warning("Load ner.json FAIL!")
         try:
             self.df = load_dict(os.path.join(fnm, "term.freq"))
         except Exception:
-            logger.warning("Load term.freq FAIL!")
+            logging.warning("Load term.freq FAIL!")
 
     def pretoken(self, txt, num=False, stpwd=True):
         patt = [
@@ -228,6 +228,7 @@ class Dealer:
             idf2 = np.array([idf(df(t), 1000000000) for t in tks])
             wts = (0.3 * idf1 + 0.7 * idf2) * \
                 np.array([ner(t) * postag(t) for t in tks])
+            wts = [math.exp(s) for s in wts]
             tw = list(zip(tks, wts))
         else:
             for tk in tks:
@@ -236,6 +237,7 @@ class Dealer:
                 idf2 = np.array([idf(df(t), 1000000000) for t in tt])
                 wts = (0.3 * idf1 + 0.7 * idf2) * \
                     np.array([ner(t) * postag(t) for t in tt])
+                wts = [math.exp(s) for s in wts]
                 tw.extend(zip(tt, wts))
 
         S = np.sum([s for _, s in tw])

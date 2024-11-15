@@ -13,19 +13,19 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import logging
 import json
 
 from flask import request
 from flask_login import login_required, current_user
 from api.db.services.llm_service import LLMFactoriesService, TenantLLMService, LLMService
-from api.settings import LIGHTEN
+from api import settings
 from api.utils.api_utils import server_error_response, get_data_error_result, validate_request
 from api.db import StatusEnum, LLMType
 from api.db.db_models import TenantLLM
 from api.utils.api_utils import get_json_result
 from rag.llm import EmbeddingModel, ChatModel, RerankModel, CvModel, TTSModel
 import requests
-from api.utils.log_utils import logger
 
 
 @manager.route('/factories', methods=['GET'])
@@ -90,7 +90,7 @@ def set_api_key():
                 if len(arr) == 0 or tc == 0:
                     raise Exception("Fail")
                 rerank_passed = True
-                logger.info(f'passed model rerank {llm.llm_name}')
+                logging.debug(f'passed model rerank {llm.llm_name}')
             except Exception as e:
                 msg += f"\nFail to access model({llm.llm_name}) using this api key." + str(
                     e)
@@ -333,7 +333,7 @@ def my_llms():
 @login_required
 def list_app():
     self_deploied = ["Youdao","FastEmbed", "BAAI", "Ollama", "Xinference", "LocalAI", "LM-Studio"]
-    weighted = ["Youdao","FastEmbed", "BAAI"] if LIGHTEN != 0 else []
+    weighted = ["Youdao","FastEmbed", "BAAI"] if settings.LIGHTEN != 0 else []
     model_type = request.args.get("model_type")
     try:
         objs = TenantLLMService.query(tenant_id=current_user.id)

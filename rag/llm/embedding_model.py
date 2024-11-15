@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import logging
 import re
 from typing import Optional
 import threading
@@ -27,12 +28,11 @@ from openai import OpenAI
 import numpy as np
 import asyncio
 
-from api.settings import LIGHTEN
+from api import settings
 from api.utils.file_utils import get_home_cache_dir
 from rag.utils import num_tokens_from_string, truncate
 import google.generativeai as genai 
 import json
-from api.utils.log_utils import logger
 
 class Base(ABC):
     def __init__(self, key, model_name):
@@ -60,7 +60,7 @@ class DefaultEmbedding(Base):
         ^_-
 
         """
-        if not LIGHTEN and not DefaultEmbedding._model:
+        if not settings.LIGHTEN and not DefaultEmbedding._model:
             with DefaultEmbedding._model_lock:
                 from FlagEmbedding import FlagModel
                 import torch
@@ -248,7 +248,7 @@ class FastEmbed(Base):
             threads: Optional[int] = None,
             **kwargs,
     ):
-        if not LIGHTEN and not FastEmbed._model:
+        if not settings.LIGHTEN and not FastEmbed._model:
             from fastembed import TextEmbedding
             self._model = TextEmbedding(model_name, cache_dir, threads, **kwargs)
 
@@ -304,10 +304,10 @@ class YoudaoEmbed(Base):
     _client = None
 
     def __init__(self, key=None, model_name="maidalun1020/bce-embedding-base_v1", **kwargs):
-        if not LIGHTEN and not YoudaoEmbed._client:
+        if not settings.LIGHTEN and not YoudaoEmbed._client:
             from BCEmbedding import EmbeddingModel as qanthing
             try:
-                logger.info("LOADING BCE...")
+                logging.info("LOADING BCE...")
                 YoudaoEmbed._client = qanthing(model_name_or_path=os.path.join(
                     get_home_cache_dir(),
                     "bce-embedding-base_v1"))

@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import logging
 import binascii
 import os
 import json
@@ -26,12 +27,11 @@ from api.db.db_models import Dialog, Conversation,DB
 from api.db.services.common_service import CommonService
 from api.db.services.knowledgebase_service import KnowledgebaseService
 from api.db.services.llm_service import LLMService, TenantLLMService, LLMBundle
-from api.settings import retrievaler, kg_retrievaler
+from api import settings
 from rag.app.resume import forbidden_select_fields4resume
 from rag.nlp.search import index_name
 from rag.utils import rmSpace, num_tokens_from_string, encoder
 from api.utils.file_utils import get_project_base_directory
-from api.utils.log_utils import logger
 
 
 class DialogService(CommonService):
@@ -152,7 +152,7 @@ def chat(dialog, messages, stream=True, **kwargs):
         return {"answer": "**ERROR**: Knowledge bases use different embedding models.", "reference": []}
 
     is_kg = all([kb.parser_id == ParserType.KG for kb in kbs])
-    retr = retrievaler if not is_kg else kg_retrievaler
+    retr = settings.retrievaler if not is_kg else settings.kg_retrievaler
 
     questions = [m["content"] for m in messages if m["role"] == "user"][-3:]
     attachments = kwargs["doc_ids"].split(",") if "doc_ids" in kwargs else None
@@ -178,7 +178,7 @@ def chat(dialog, messages, stream=True, **kwargs):
         tts_mdl = LLMBundle(dialog.tenant_id, LLMType.TTS)
     # try to use sql if field mapping is good to go
     if field_map:
-        logger.info("Use SQL to retrieval:{}".format(questions[-1]))
+        logging.debug("Use SQL to retrieval:{}".format(questions[-1]))
         ans = use_sql(questions[-1], field_map, dialog.tenant_id, chat_mdl, prompt_config.get("quote", True))
         if ans:
             yield ans
@@ -220,7 +220,7 @@ def chat(dialog, messages, stream=True, **kwargs):
                                         doc_ids=attachments,
                                         top=dialog.top_k, aggs=False, rerank_mdl=rerank_mdl)
     knowledges = [ck["content_with_weight"] for ck in kbinfos["chunks"]]
-    logger.info(
+    logging.debug(
         "{}->{}".format(" ".join(questions), "\n->".join(knowledges)))
     retrieval_tm = timer()
 
@@ -292,7 +292,7 @@ def chat(dialog, messages, stream=True, **kwargs):
         yield decorate_answer(answer)
     else:
         answer = chat_mdl.chat(prompt, msg[1:], gen_conf)
-        logger.info("User: {}|Assistant: {}".format(
+        logging.debug("User: {}|Assistant: {}".format(
             msg[-1]["content"], answer))
         res = decorate_answer(answer)
         res["audio_binary"] = tts(tts_mdl, answer)
@@ -320,7 +320,7 @@ def use_sql(question, field_map, tenant_id, chat_mdl, quota=True):
         nonlocal sys_prompt, user_promt, question, tried_times
         sql = chat_mdl.chat(sys_prompt, [{"role": "user", "content": user_promt}], {
             "temperature": 0.06})
-        logger.info(f"{question} ==> {user_promt} get SQL: {sql}")
+        logging.debug(f"{question} ==> {user_promt} get SQL: {sql}")
         sql = re.sub(r"[\r\n]+", " ", sql.lower())
         sql = re.sub(r".*select ", "select ", sql.lower())
         sql = re.sub(r" +", " ", sql)
@@ -340,9 +340,9 @@ def use_sql(question, field_map, tenant_id, chat_mdl, quota=True):
                     flds.append(k)
                 sql = "select doc_id,docnm_kwd," + ",".join(flds) + sql[8:]
 
-        logger.info(f"{question} get SQL(refined): {sql}")
+        logging.debug(f"{question} get SQL(refined): {sql}")
         tried_times += 1
-        return retrievaler.sql_retrieval(sql, format="json"), sql
+        return settings.retrievaler.sql_retrieval(sql, format="json"), sql
 
     tbl, sql = get_table()
     if tbl is None:
@@ -369,9 +369,9 @@ def use_sql(question, field_map, tenant_id, chat_mdl, quota=True):
             question, sql, tbl["error"]
         )
         tbl, sql = get_table()
-        logger.info("TRY it again: {}".format(sql))
+        logging.debug("TRY it again: {}".format(sql))
 
-    logger.info("GET table: {}".format(tbl))
+    logging.debug("GET table: {}".format(tbl))
     if tbl.get("error") or len(tbl["rows"]) == 0:
         return None
 
@@ -401,7 +401,7 @@ def use_sql(question, field_map, tenant_id, chat_mdl, quota=True):
     rows = re.sub(r"T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+Z)?\|", "|", rows)
 
     if not docid_idx or not docnm_idx:
-        logger.warning("SQL missing field: " + sql)
+        logging.warning("SQL missing field: " + sql)
         return {
             "answer": "\n".join([clmns, line, rows]),
             "reference": {"chunks": [], "doc_aggs": []},
@@ -596,7 +596,7 @@ def ask(question, kb_ids, tenant_id):
     embd_nms = list(set([kb.embd_id for kb in kbs]))
 
     is_kg = all([kb.parser_id == ParserType.KG for kb in kbs])
-    retr = retrievaler if not is_kg else kg_retrievaler
+    retr = settings.retrievaler if not is_kg else settings.kg_retrievaler
 
     embd_mdl = LLMBundle(tenant_id, LLMType.EMBEDDING, embd_nms[0])
     chat_mdl = LLMBundle(tenant_id, LLMType.CHAT)

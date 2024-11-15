@@ -24,6 +24,7 @@ module.exports = {
         ring: 'hsl(var(--ring))',
         background: 'var(--background)',
         foreground: 'hsl(var(--foreground))',
+        buttonBlueText: 'var(--button-blue-text)',
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
@@ -63,6 +64,10 @@ module.exports = {
         backgroundCoreStandard: {
           DEFAULT: 'var(--background-core-standard)',
           foreground: 'var(--background-core-standard-foreground)',
+        },
+        backgroundCoreWeak: {
+          DEFAULT: 'var(--background-core-weak)',
+          foreground: 'var(--background-core-weak-foreground)',
         },
       },
       borderRadius: {
