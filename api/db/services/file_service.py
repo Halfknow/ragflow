@@ -389,6 +389,67 @@ class FileService(CommonService):
 
         return err, files
 
+    @classmethod
+    @DB.connection_context()
+    def upload_oss_documents(self, kb, oss_links, file_names, user_id):
+        root_folder = self.get_root_folder(user_id)
+        pf_id = root_folder["id"]
+        self.init_knowledgebase_docs(pf_id, user_id)
+        kb_root_folder = self.get_kb_folder(user_id)
+        kb_folder = self.new_a_file_from_kb(kb.tenant_id, kb.name, kb_root_folder["id"])
+
+        err, files = [], []
+        for oss_link, filename in zip(oss_links, file_names):
+            try:
+                MAX_FILE_NUM_PER_USER = int(os.environ.get('MAX_FILE_NUM_PER_USER', 0))
+                if MAX_FILE_NUM_PER_USER > 0 and DocumentService.get_doc_count(kb.tenant_id) >= MAX_FILE_NUM_PER_USER:
+                    raise RuntimeError("Exceed the maximum file number of a free user!")
+
+                filename = duplicate_name(
+                    DocumentService.query,
+                    name=filename,
+                    kb_id=kb.id)
+                filetype = filename_type(filename)
+                if filetype == FileType.OTHER.value:
+                    raise RuntimeError("This type of file has not been supported yet!")
+
+                location = filename
+                while STORAGE_IMPL.obj_exist(kb.id, location):
+                    location += "_"
+
+                # 从OSS下载文件内容
+                blob = self.download_from_oss(oss_link)
+                STORAGE_IMPL.put(kb.id, location, blob)
+
+                doc_id = get_uuid()
+
+                img = thumbnail_img(filename, blob)
+                thumbnail_location = ''
+                if img is not None:
+                    thumbnail_location = f'thumbnail_{doc_id}.png'
+                    STORAGE_IMPL.put(kb.id, thumbnail_location, img)
+
+                doc = {
+                    "id": doc_id,
+                    "kb_id": kb.id,
+                    "parser_id": self.get_parser(filetype, filename, kb.parser_id),
+                    "parser_config": kb.parser_config,
+                    "created_by": user_id,
+                    "type": filetype,
+                    "name": filename,
+                    "location": location,
+                    "size": len(blob),
+                    "thumbnail": thumbnail_location
+            }
+                DocumentService.insert(doc)
+
+                FileService.add_file_from_kb(doc, kb_folder["id"], kb.tenant_id)
+                files.append((doc, blob))
+            except Exception as e:
+                err.append(f"{oss_link} ({filename}): {str(e)}")
+
+        return err, files
+
     @staticmethod
     def parse_docs(file_objs, user_id):
         from rag.app import presentation, picture, naive, audio, email
@@ -435,3 +496,13 @@ class FileService(CommonService):
         if re.search(r"\.(eml)$", filename):
             return ParserType.EMAIL.value
         return default
+    
+    @staticmethod
+    def download_from_oss(oss_link):
+        import requests
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.99 Safari/537.36"}
+        response = requests.get(oss_link, headers = headers)
+        if response.status_code == 200:
+            return response.content
+        else:
+            raise RuntimeError(f"Failed to download file from OSS: {response.status_code}")
