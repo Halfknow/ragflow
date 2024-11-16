@@ -482,8 +482,7 @@ class User(DataBaseModel, UserMixin):
         return self.email
 
     def get_id(self):
-        jwt = Serializer(secret_key=settings.SECRET_KEY)
-        return jwt.dumps(str(self.access_token))
+        return self.access_token
 
     class Meta:
         db_table = "user"
