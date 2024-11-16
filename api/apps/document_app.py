@@ -64,11 +64,12 @@ def upload():
     if not e:
         raise LookupError("Can't find this knowledgebase!")
 
-    err, _ = FileService.upload_document(kb, file_objs, current_user.id)
+    err, files = FileService.upload_document(kb, file_objs, current_user.id)
     if err:
         return get_json_result(
             data=False, message="\n".join(err), code=settings.RetCode.SERVER_ERROR)
-    return get_json_result(data=True)
+    doc_ids = [file[0].get("id") for file in files]
+    return get_json_result(data={"success": True, "doc_ids": doc_ids})
 
 
 @manager.route('/web_crawl', methods=['POST'])  # noqa: F821
