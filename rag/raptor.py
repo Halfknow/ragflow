@@ -17,7 +17,6 @@ import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, ALL_COMPLETED, wait
 from threading import Lock
-from typing import Tuple
 import umap
 import numpy as np
 from sklearn.mixture import GaussianMixture
@@ -26,7 +25,7 @@ from rag.utils import truncate
 
 
 class RecursiveAbstractiveProcessing4TreeOrganizedRetrieval:
-    def __init__(self, max_cluster, llm_model, embd_model, prompt, max_token=256, threshold=0.1):
+    def __init__(self, max_cluster, llm_model, embd_model, prompt, max_token=512, threshold=0.1):
         self._max_cluster = max_cluster
         self._llm_model = llm_model
         self._embd_model = embd_model
@@ -45,7 +44,7 @@ class RecursiveAbstractiveProcessing4TreeOrganizedRetrieval:
         optimal_clusters = n_clusters[np.argmin(bics)]
         return optimal_clusters
 
-    def __call__(self, chunks: Tuple[str, np.ndarray], random_state, callback=None):
+    def __call__(self, chunks: tuple[str, np.ndarray], random_state, callback=None):
         layers = [(0, len(chunks))]
         start, end = 0, len(chunks)
         if len(chunks) <= 1: return
