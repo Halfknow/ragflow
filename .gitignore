@@ -36,5 +36,12 @@ sdk/python/ragflow.egg-info/
 sdk/python/build/
 sdk/python/dist/
 sdk/python/ragflow_sdk.egg-info/
+
+# Exclude downloaded dependencies
 huggingface.co/
 nltk_data/
+*.deb
+*.jar
+*.md5
+*.tiktoken
+chrome*
