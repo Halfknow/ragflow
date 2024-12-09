@@ -279,10 +279,7 @@ class Dealer:
             ins_tw.append(tks)
 
         tksim = self.qryr.token_similarity(keywords, ins_tw)
-        if rerank_mdl:
-            vtsim,_ = rerank_mdl.similarity(query, [rmSpace(" ".join(tks)) for tks in ins_tw])
-        else:
-            vtsim = np.zeros_like(tksim) 
+        vtsim,_ = rerank_mdl.similarity(query, [rmSpace(" ".join(tks)) for tks in ins_tw])
 
         return tkweight*np.array(tksim) + vtweight*vtsim, tksim, vtsim
 
@@ -293,14 +290,14 @@ class Dealer:
                                            rag_tokenizer.tokenize(inst).split())
 
     def retrieval(self, question, embd_mdl, tenant_ids, kb_ids, page, page_size, similarity_threshold=0.2,
-                  vector_similarity_weight=0.3, top=1024, doc_ids=None, aggs=True, rerank_mdl=None, highlight=False, use_embedding=True):
+                  vector_similarity_weight=0.3, top=1024, doc_ids=None, aggs=True, rerank_mdl=None, highlight=False):
         ranks = {"total": 0, "chunks": [], "doc_aggs": {}}
         if not question:
             return ranks
 
         RERANK_PAGE_LIMIT = 3
         req = {"kb_ids": kb_ids, "doc_ids": doc_ids, "size": max(page_size*RERANK_PAGE_LIMIT, 128),
-               "question": question, "vector": use_embedding, "topk": top,
+               "question": question, "vector": True, "topk": top,
                "similarity": similarity_threshold,
                "available_int": 1}
 
@@ -315,7 +312,7 @@ class Dealer:
         ranks["total"] = sres.total
 
         if page <= RERANK_PAGE_LIMIT:
-            if rerank_mdl or not use_embedding:
+            if rerank_mdl:
                 sim, tsim, vsim = self.rerank_by_model(rerank_mdl,
                     sres, question, 1 - vector_similarity_weight, vector_similarity_weight)
             else:
