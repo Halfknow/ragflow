@@ -353,3 +353,199 @@ def knowledge_graph():
         obj[ty] = content_json
 
     return get_json_result(data=obj)
+
+
+@manager.route("/retrieval_es", methods=["POST"])
+@login_required
+@validate_request("kb_id", "question")
+def retrieval_es():
+    req = request.json
+    page = int(req.get("page", 1))
+    size = int(req.get("size", 30))
+    question = req["question"]
+    kb_ids = req["kb_id"]
+    use_embedding = req.get("use_embedding", True)
+
+    if isinstance(kb_ids, str):
+        kb_ids = [kb_ids]
+
+    doc_ids = req.get("doc_ids", [])
+    top = int(req.get("top_k", 1024))
+    tenant_ids = []
+
+    try:
+        # Validate tenant access
+        tenants = UserTenantService.query(user_id=current_user.id)
+        for kb_id in kb_ids:
+            for tenant in tenants:
+                if KnowledgebaseService.query(tenant_id=tenant.tenant_id, id=kb_id):
+                    tenant_ids.append(tenant.tenant_id)
+                    break
+            else:
+                return get_json_result(
+                    data=False,
+                    message="Only owner of knowledgebase authorized for this operation.",
+                    code=settings.RetCode.OPERATING_ERROR,
+                )
+
+        # Get knowledge base details
+        e, kb = KnowledgebaseService.get_by_id(kb_ids[0])
+        if not e:
+            return get_data_error_result(message="Knowledgebase not found!")
+
+        if use_embedding:
+            # 使用原有的向量搜索逻辑
+            embd_mdl = LLMBundle(
+                kb.tenant_id, LLMType.EMBEDDING.value, llm_name=kb.embd_id
+            )
+            rerank_mdl = None
+            if req.get("rerank_id"):
+                rerank_mdl = LLMBundle(
+                    kb.tenant_id, LLMType.RERANK.value, llm_name=req["rerank_id"]
+                )
+
+            similarity_threshold = float(req.get("similarity_threshold", 0.0))
+            vector_similarity_weight = float(req.get("vector_similarity_weight", 0.3))
+        else:
+            # 纯ES搜索模式
+            embd_mdl = None
+            rerank_mdl = None
+            similarity_threshold = 0.0
+            vector_similarity_weight = 0.0
+            # 构造搜索请求
+            search_req = {
+                "kb_ids": kb_ids,
+                "doc_ids": doc_ids,
+                "size": size,
+                "question": question,
+                "page": page,
+                "topk": top,
+                "vector": use_embedding,  # 控制是否使用向量搜索
+                "highlight": req.get("highlight", False),
+            }
+
+        # Handle keyword extraction if needed
+        if req.get("keyword", False):
+            chat_mdl = LLMBundle(kb.tenant_id, LLMType.CHAT)
+            question += keyword_extraction(chat_mdl, question)
+
+        # Choose retriever based on parser type
+        retr = (
+            settings.retrievaler
+            if kb.parser_id != ParserType.KG
+            else settings.kg_retrievaler
+        )
+
+        # 执行搜索
+        if isinstance(tenant_ids, str):
+            tenant_ids = tenant_ids.split(",")
+        # 修正的 index_name 引用
+        idx_names = [search.index_name(tid) for tid in tenant_ids]
+
+        if not use_embedding:
+            # 直接调用 search 方法进行纯 ES 搜索
+            search_result = retr.search(
+                search_req, idx_names, kb_ids, None, req.get("highlight", False)
+            )
+
+            # 获取关键词和词项列表
+            _, keywords = retr.qryr.question(question)
+
+            # 准备文档词项列表
+            ins_tw = []
+            for id in search_result.ids:
+                chunk = search_result.field[id]
+                content_ltks = chunk["content_ltks"].split(" ")
+                title_tks = [t for t in chunk.get("title_tks", "").split(" ") if t]
+                important_kwd = chunk.get("important_kwd", [])
+                if isinstance(important_kwd, str):
+                    important_kwd = [important_kwd]
+                tks = content_ltks + title_tks + important_kwd
+                ins_tw.append(tks)
+
+            # 只计算词项相似度
+            term_scores = retr.qryr.token_similarity(keywords, ins_tw)
+
+            # 构造返回结果
+            ranks = {"total": search_result.total, "chunks": [], "doc_aggs": {}}
+
+            if not question:
+                return ranks
+
+            # 处理搜索结果
+            for i, id in enumerate(search_result.ids):
+                chunk = search_result.field[id]
+                term_score = (
+                    term_scores[i] if i < len(term_scores) else 0.0
+                )  # 词项相似度分数
+
+                d = {
+                    "chunk_id": id,
+                    "content_ltks": chunk["content_ltks"],
+                    "content_with_weight": chunk["content_with_weight"],
+                    "doc_id": chunk["doc_id"],
+                    "docnm_kwd": chunk["docnm_kwd"],
+                    "kb_id": chunk["kb_id"],
+                    "important_kwd": chunk.get("important_kwd", []),
+                    "image_id": chunk.get("img_id", ""),
+                    "similarity": term_score,
+                    "vector_similarity": 0.0,
+                    "term_similarity": term_score,
+                }
+
+                if (
+                    req.get("highlight")
+                    and search_result.highlight
+                    and id in search_result.highlight
+                ):
+                    d["highlight"] = rmSpace(search_result.highlight[id])
+                else:
+                    d["highlight"] = d["content_with_weight"]
+
+                ranks["chunks"].append(d)
+
+                # 添加文档聚合
+                dnm = chunk["docnm_kwd"]
+                did = chunk["doc_id"]
+                if dnm not in ranks["doc_aggs"]:
+                    ranks["doc_aggs"][dnm] = {"doc_id": did, "count": 0}
+                ranks["doc_aggs"][dnm]["count"] += 1
+
+            # 转换文档聚合为列表格式并按count降序排序
+            ranks["doc_aggs"] = [
+                {"doc_name": k, "doc_id": v["doc_id"], "count": v["count"]}
+                for k, v in sorted(
+                    ranks["doc_aggs"].items(), key=lambda x: x[1]["count"] * -1
+                )
+            ]
+        else:
+            # 使用原有的向量搜索逻辑
+            ranks = retr.retrieval(
+                question,
+                embd_mdl,
+                tenant_ids,
+                kb_ids,
+                page,
+                size,
+                similarity_threshold,
+                vector_similarity_weight,
+                top,
+                doc_ids,
+                rerank_mdl=rerank_mdl,
+                highlight=req.get("highlight"),
+            )
+
+        # Remove vector data from response
+        for c in ranks["chunks"]:
+            c.pop("vector", None)
+
+        return get_json_result(data=ranks)
+
+    except Exception as e:
+        if str(e).find("not_found") > 0:
+            return get_json_result(
+                data=False,
+                message="No chunk found! Check the chunk status please!",
+                code=settings.RetCode.DATA_ERROR,
+            )
+        return server_error_response(e)
