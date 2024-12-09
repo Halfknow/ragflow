@@ -297,6 +297,92 @@ def retrieval_test():
             return get_json_result(data=False, message='No chunk found! Check the chunk status please!',
                                    code=settings.RetCode.DATA_ERROR)
         return server_error_response(e)
+    
+
+@manager.route('/retrieval_es', methods=['POST'])
+@login_required
+@validate_request("kb_id", "question")
+def retrieval_es():
+    req = request.json
+    page = int(req.get("page", 1))
+    size = int(req.get("size", 30))
+    question = req["question"]
+    kb_ids = req["kb_id"]
+    use_embedding = req.get("use_embedding", True)
+    
+    if isinstance(kb_ids, str):
+        kb_ids = [kb_ids]
+    
+    doc_ids = req.get("doc_ids", [])
+    top = int(req.get("top_k", 1024))
+    tenant_ids = []
+    
+    try:
+        # Validate tenant access
+        tenants = UserTenantService.query(user_id=current_user.id)
+        for kb_id in kb_ids:
+            for tenant in tenants:
+                if KnowledgebaseService.query(tenant_id=tenant.tenant_id, id=kb_id):
+                    tenant_ids.append(tenant.tenant_id)
+                    break
+            else:
+                return get_json_result(
+                    data=False, 
+                    message='Only owner of knowledgebase authorized for this operation.',
+                    code=settings.RetCode.OPERATING_ERROR
+                )
+        
+        # Get knowledge base details
+        e, kb = KnowledgebaseService.get_by_id(kb_ids[0])
+        if not e:
+            return get_data_error_result(message="Knowledgebase not found!")
+
+        if use_embedding:
+            # 使用原有的向量搜索逻辑
+            embd_mdl = LLMBundle(kb.tenant_id, LLMType.EMBEDDING.value, llm_name=kb.embd_id)
+            rerank_mdl = None
+            if req.get("rerank_id"):
+                rerank_mdl = LLMBundle(kb.tenant_id, LLMType.RERANK.value, llm_name=req["rerank_id"])
+            
+            similarity_threshold = float(req.get("similarity_threshold", 0.0))
+            vector_similarity_weight = float(req.get("vector_similarity_weight", 0.3))
+        else:
+            # 纯ES搜索模式
+            embd_mdl = None
+            rerank_mdl = None
+            similarity_threshold = 0.0
+            vector_similarity_weight = 0.0
+        
+        # Handle keyword extraction if needed
+        if req.get("keyword", False):
+            chat_mdl = LLMBundle(kb.tenant_id, LLMType.CHAT)
+            question += keyword_extraction(chat_mdl, question)
+        
+        # Choose retriever based on parser type
+        retr = settings.retrievaler if kb.parser_id != ParserType.KG else settings.kg_retrievaler
+        
+        # 执行搜索
+        if isinstance(tenant_ids, str):
+            tenant_ids = tenant_ids.split(",")
+        
+        ranks = retr.retrieval(question, embd_mdl, tenant_ids, kb_ids, page, size,
+                            similarity_threshold, vector_similarity_weight, top,
+                            doc_ids, rerank_mdl=rerank_mdl, highlight=req.get("highlight"), use_embedding=use_embedding)
+        
+        # Remove vector data from response
+        for c in ranks["chunks"]:
+            c.pop("vector", None)
+            
+        return get_json_result(data=ranks)
+        
+    except Exception as e:
+        if str(e).find("not_found") > 0:
+            return get_json_result(
+                data=False,
+                message='No chunk found! Check the chunk status please!',
+                code=settings.RetCode.DATA_ERROR
+            )
+        return server_error_response(e)
 
 
 @manager.route('/knowledge_graph', methods=['GET'])
