@@ -13,9 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-from datetime import datetime
-import peewee
-from api.db.db_models import DB, API4Conversation, APIToken, Dialog, CanvasTemplate, UserCanvas
+from api.db.db_models import DB, CanvasTemplate, UserCanvas
 from api.db.services.common_service import CommonService
 
 
@@ -25,3 +23,22 @@ class CanvasTemplateService(CommonService):
 
 class UserCanvasService(CommonService):
     model = UserCanvas
+
+    @classmethod
+    @DB.connection_context()
+    def get_list(cls, tenant_id,
+                 page_number, items_per_page, orderby, desc, id, title):
+        agents = cls.model.select()
+        if id:
+            agents = agents.where(cls.model.id == id)
+        if title:
+            agents = agents.where(cls.model.title == title)
+        agents = agents.where(cls.model.user_id == tenant_id)
+        if desc:
+            agents = agents.order_by(cls.model.getter_by(orderby).desc())
+        else:
+            agents = agents.order_by(cls.model.getter_by(orderby).asc())
+
+        agents = agents.paginate(page_number, items_per_page)
+
+        return list(agents.dicts())

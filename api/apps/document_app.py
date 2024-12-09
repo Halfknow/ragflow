@@ -13,7 +13,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License
 #
-import json
 import os.path
 import pathlib
 import re
@@ -43,7 +42,7 @@ from api.utils.web_utils import html2pdf, is_valid_url
 from api.constants import IMG_BASE64_PREFIX
 
 
-@manager.route('/upload', methods=['POST'])
+@manager.route('/upload', methods=['POST'])  # noqa: F821
 @login_required
 @validate_request("kb_id")
 def upload():
@@ -106,7 +105,7 @@ def upload_oss():
     return get_json_result(data={"success": True, "doc_ids": doc_ids})
 
 
-@manager.route('/web_crawl', methods=['POST'])
+@manager.route('/web_crawl', methods=['POST'])  # noqa: F821
 @login_required
 @validate_request("kb_id", "name", "url")
 def web_crawl():
@@ -124,7 +123,8 @@ def web_crawl():
         raise LookupError("Can't find this knowledgebase!")
 
     blob = html2pdf(url)
-    if not blob: return server_error_response(ValueError("Download failure."))
+    if not blob:
+        return server_error_response(ValueError("Download failure."))
 
     root_folder = FileService.get_root_folder(current_user.id)
     pf_id = root_folder["id"]
@@ -172,7 +172,7 @@ def web_crawl():
     return get_json_result(data=True)
 
 
-@manager.route('/create', methods=['POST'])
+@manager.route('/create', methods=['POST'])  # noqa: F821
 @login_required
 @validate_request("name", "kb_id")
 def create():
@@ -208,7 +208,7 @@ def create():
         return server_error_response(e)
 
 
-@manager.route('/list', methods=['GET'])
+@manager.route('/list', methods=['GET'])  # noqa: F821
 @login_required
 def list_docs():
     kb_id = request.args.get("kb_id")
@@ -243,7 +243,7 @@ def list_docs():
         return server_error_response(e)
 
 
-@manager.route('/infos', methods=['POST'])
+@manager.route('/infos', methods=['POST'])  # noqa: F821
 @login_required
 def docinfos():
     req = request.json
@@ -259,7 +259,7 @@ def docinfos():
     return get_json_result(data=list(docs.dicts()))
 
 
-@manager.route('/thumbnails', methods=['GET'])
+@manager.route('/thumbnails', methods=['GET'])  # noqa: F821
 # @login_required
 def thumbnails():
     doc_ids = request.args.get("doc_ids").split(",")
@@ -279,7 +279,7 @@ def thumbnails():
         return server_error_response(e)
 
 
-@manager.route('/change_status', methods=['POST'])
+@manager.route('/change_status', methods=['POST'])  # noqa: F821
 @login_required
 @validate_request("doc_id", "status")
 def change_status():
@@ -318,13 +318,14 @@ def change_status():
         return server_error_response(e)
 
 
-@manager.route('/rm', methods=['POST'])
+@manager.route('/rm', methods=['POST'])  # noqa: F821
 @login_required
 @validate_request("doc_id")
 def rm():
     req = request.json
     doc_ids = req["doc_id"]
-    if isinstance(doc_ids, str): doc_ids = [doc_ids]
+    if isinstance(doc_ids, str):
+        doc_ids = [doc_ids]
 
     for doc_id in doc_ids:
         if not DocumentService.accessible4deletion(doc_id, current_user.id):
@@ -367,7 +368,7 @@ def rm():
     return get_json_result(data=True)
 
 
-@manager.route('/run', methods=['POST'])
+@manager.route('/run', methods=['POST'])  # noqa: F821
 @login_required
 @validate_request("doc_ids", "run")
 def run():
@@ -410,7 +411,7 @@ def run():
         return server_error_response(e)
 
 
-@manager.route('/rename', methods=['POST'])
+@manager.route('/rename', methods=['POST'])  # noqa: F821
 @login_required
 @validate_request("doc_id", "name")
 def rename():
@@ -451,7 +452,7 @@ def rename():
         return server_error_response(e)
 
 
-@manager.route('/get/<doc_id>', methods=['GET'])
+@manager.route('/get/<doc_id>', methods=['GET'])  # noqa: F821
 # @login_required
 def get(doc_id):
     try:
@@ -476,7 +477,7 @@ def get(doc_id):
         return server_error_response(e)
 
 
-@manager.route('/change_parser', methods=['POST'])
+@manager.route('/change_parser', methods=['POST'])  # noqa: F821
 @login_required
 @validate_request("doc_id", "parser_id")
 def change_parser():
@@ -527,7 +528,7 @@ def change_parser():
         return server_error_response(e)
 
 
-@manager.route('/image/<image_id>', methods=['GET'])
+@manager.route('/image/<image_id>', methods=['GET'])  # noqa: F821
 # @login_required
 def get_image(image_id):
     try:
@@ -539,7 +540,7 @@ def get_image(image_id):
         return server_error_response(e)
 
 
-@manager.route('/upload_and_parse', methods=['POST'])
+@manager.route('/upload_and_parse', methods=['POST'])  # noqa: F821
 @login_required
 @validate_request("conversation_id")
 def upload_and_parse():
@@ -558,7 +559,7 @@ def upload_and_parse():
     return get_json_result(data=doc_ids)
 
 
-@manager.route('/parse', methods=['POST'])
+@manager.route('/parse', methods=['POST'])  # noqa: F821
 @login_required
 def parse():
     url = request.json.get("url") if request.json else ""
