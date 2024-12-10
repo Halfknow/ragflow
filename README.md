@@ -171,8 +171,8 @@ releases! 🌟
    Docker images do not include embedding models or Python libraries and hence are approximately 2 GB in size.
 
    ```bash
-   $ cd ragflow/docker
-   $ docker compose -f docker-compose.yml up -d
+   $ cd ragflow
+   $ docker compose -f docker/docker-compose.yml up -d
    ```
 
    | RAGFLOW_IMAGE tag in docker/.env | size  | Including embedding models and related Python packages? | comments               |
@@ -305,7 +305,6 @@ docker build -f Dockerfile -t infiniflow/ragflow:nightly .
    ```
    127.0.0.1       es01 infinity mysql minio redis
    ```  
-   In **docker/service_conf.yaml.template**, update mysql port to `5455` and es port to `1200`, as specified in **docker/.env**.
 
 4. If you cannot access HuggingFace, set the `HF_ENDPOINT` environment variable to use a mirror site:
 

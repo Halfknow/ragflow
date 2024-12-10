@@ -148,8 +148,8 @@
    > 아래의 명령은 RAGFlow slim(v0.14.1-slim)의 개발 버전 Docker 이미지를 다운로드합니다. RAGFlow slim Docker 이미지에는 임베딩 모델이나 Python 라이브러리가 포함되어 있지 않으므로 크기는 약 1GB입니다.
 
    ```bash
-   $ cd ragflow/docker
-   $ docker compose -f docker-compose.yml up -d
+   $ cd ragflow
+   $ docker compose -f docker/docker-compose.yml up -d
    ```
    
 
@@ -189,7 +189,7 @@
 
 5. 웹 브라우저에 서버의 IP 주소를 입력하고 RAGFlow에 로그인하세요.
    > 기본 설정을 사용할 경우, `http://IP_OF_YOUR_MACHINE`만 입력하면 됩니다 (포트 번호는 제외). 기본 HTTP 서비스 포트 `80`은 기본 구성으로 사용할 때 생략할 수 있습니다.
-6. [service_conf.yaml](./docker/service_conf.yaml) 파일에서 원하는 LLM 팩토리를 `user_default_llm`에 선택하고, `API_KEY` 필드를 해당 API 키로 업데이트하세요.
+6. [service_conf.yaml.template](./docker/service_conf.yaml.template) 파일에서 원하는 LLM 팩토리를 `user_default_llm`에 선택하고, `API_KEY` 필드를 해당 API 키로 업데이트하세요.
    > 자세한 내용은 [llm_api_key_setup](https://ragflow.io/docs/dev/llm_api_key_setup)를 참조하세요.
 
    _이제 쇼가 시작됩니다!_
@@ -199,12 +199,12 @@
 시스템 설정과 관련하여 다음 파일들을 관리해야 합니다:
 
 - [.env](./docker/.env): `SVR_HTTP_PORT`, `MYSQL_PASSWORD`, `MINIO_PASSWORD`와 같은 시스템의 기본 설정을 포함합니다.
-- [service_conf.yaml](./docker/service_conf.yaml): 백엔드 서비스를 구성합니다.
+- [service_conf.yaml.template](./docker/service_conf.yaml.template): 백엔드 서비스를 구성합니다.
 - [docker-compose.yml](./docker/docker-compose.yml): 시스템은 [docker-compose.yml](./docker/docker-compose.yml)을 사용하여 시작됩니다.
 
-[.env](./docker/.env) 파일의 변경 사항이 [service_conf.yaml](./docker/service_conf.yaml) 파일의 내용과 일치하도록 해야 합니다.
+[.env](./docker/.env) 파일의 변경 사항이 [service_conf.yaml.template](./docker/service_conf.yaml.template) 파일의 내용과 일치하도록 해야 합니다.
 
-> [./docker/README](./docker/README.md) 파일에는 환경 설정과 서비스 구성에 대한 자세한 설명이 있으며, [./docker/README](./docker/README.md) 파일에 나열된 모든 환경 설정이 [service_conf.yaml](./docker/service_conf.yaml) 파일의 해당 구성과 일치하도록 해야 합니다.
+> [./docker/README](./docker/README.md) 파일 ./docker/README은 service_conf.yaml.template 파일에서 ${ENV_VARS}로 사용할 수 있는 환경 설정과 서비스 구성에 대한 자세한 설명을 제공합니다.
 
 기본 HTTP 서비스 포트(80)를 업데이트하려면 [docker-compose.yml](./docker/docker-compose.yml) 파일에서 `80:80`을 `<YOUR_SERVING_PORT>:80`으로 변경하세요.
 
@@ -219,12 +219,12 @@
 RAGFlow 는 기본적으로 Elasticsearch 를 사용하여 전체 텍스트 및 벡터를 저장합니다. [Infinity]로 전환(https://github.com/infiniflow/infinity/), 다음 절차를 따르십시오.
 1. 실행 중인 모든 컨테이너를 중지합니다.
    ```bash
-   $docker compose-f docker/docker-compose.yml down-v
+   $docker compose-f docker/docker-compose.yml down -v
    ```
 2. **docker/.env**의 "DOC_ENGINE" 을 "infinity" 로 설정합니다.
 3. 컨테이너 부팅:
    ```bash
-   $docker compose-f docker/docker-compose.yml up-d
+   $docker compose-f docker/docker-compose.yml up -d
    ``` 
 > [!WARNING]
 > Linux/arm64 시스템에서 Infinity로 전환하는 것은 공식적으로 지원되지 않습니다.
@@ -269,11 +269,10 @@ docker build -f Dockerfile -t infiniflow/ragflow:nightly .
    docker compose -f docker/docker-compose-base.yml up -d
    ```
 
-   `/etc/hosts` 에 다음 줄을 추가하여 **docker/service_conf.yaml** 에 지정된 모든 호스트를 `127.0.0.1` 로 해결합니다:  
+   `/etc/hosts` 에 다음 줄을 추가하여 **conf/service_conf.yaml** 에 지정된 모든 호스트를 `127.0.0.1` 로 해결합니다:  
    ```
    127.0.0.1       es01 infinity mysql minio redis
    ```  
-   **docker/service_conf.yaml** 에서 mysql 포트를 `5455` 로, es 포트를 `1200` 으로 업데이트합니다( **docker/.env** 에 지정된 대로).
 
 4. HuggingFace에 접근할 수 없는 경우, `HF_ENDPOINT` 환경 변수를 설정하여 미러 사이트를 사용하세요:
  
