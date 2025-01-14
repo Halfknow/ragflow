@@ -596,13 +596,13 @@ def upload_oss():
     kb_id = request.form.get("kb_id")
     if not kb_id:
         return get_json_result(
-            data=False, retmsg='Lack of "KB ID"', retcode=RetCode.ARGUMENT_ERROR)
+            data=False, msg='Lack of "KB ID"', code=settings.RetCode.ARGUMENT_ERROR)
     
     oss_links = request.form.getlist('oss_links')
     file_names = request.form.getlist('file_names')
     if not oss_links or not file_names or len(oss_links) != len(file_names):
         return get_json_result(
-            data=False, retmsg='Invalid OSS links or file names!', retcode=RetCode.ARGUMENT_ERROR)
+            data=False, msg='Invalid OSS links or file names!', code=settings.RetCode.ARGUMENT_ERROR)
 
     e, kb = KnowledgebaseService.get_by_id(kb_id)
     if not e:
@@ -611,7 +611,7 @@ def upload_oss():
     err, files = FileService.upload_oss_documents(kb, oss_links, file_names, current_user.id)
     if err:
         return get_json_result(
-            data=False, retmsg="\n".join(err), retcode=RetCode.SERVER_ERROR)
+            data=False, msg="\n".join(err), code=settings.RetCode.SERVER_ERROR)
     
     doc_ids = [file[0].get("id") for file in files]
     return get_json_result(data={"success": True, "doc_ids": doc_ids})

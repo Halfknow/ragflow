@@ -411,6 +411,9 @@ class ESConnection(DocStoreConnection):
         for d in res["hits"]["hits"]:
             hlts = d.get("highlight")
             if not hlts:
+                # 新增一行
+				# 如果es未返回highlight，使用content_with_weight
+                ans[d["_id"]] = d["_source"][fieldnm]
                 continue
             txt = "...".join([a for a in list(hlts.items())[0][1]])
             if not is_english(txt.split()):

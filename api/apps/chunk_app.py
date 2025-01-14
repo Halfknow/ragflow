@@ -507,13 +507,14 @@ def retrieval_es():
                 # 添加文档聚合
                 dnm = chunk["docnm_kwd"]
                 did = chunk["doc_id"]
+                kid = chunk["kb_id"]
                 if dnm not in ranks["doc_aggs"]:
-                    ranks["doc_aggs"][dnm] = {"doc_id": did, "count": 0}
+                    ranks["doc_aggs"][dnm] = {"doc_id": did, "kb_id": kid, "count": 0}
                 ranks["doc_aggs"][dnm]["count"] += 1
 
             # 转换文档聚合为列表格式并按count降序排序
             ranks["doc_aggs"] = [
-                {"doc_name": k, "doc_id": v["doc_id"], "count": v["count"]}
+                {"doc_name": k, "doc_id": v["doc_id"], "kb_id": v["kb_id"], "count": v["count"]}
                 for k, v in sorted(
                     ranks["doc_aggs"].items(), key=lambda x: x[1]["count"] * -1
                 )

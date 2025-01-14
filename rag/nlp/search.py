@@ -87,8 +87,8 @@ class Dealer:
             total=self.dataStore.getTotal(res)
             logging.debug("Dealer.search TOTAL: {}".format(total))
         else:
-            highlightFields = ["content_ltks", "title_tks"] if highlight else []
-            matchText, keywords = self.qryr.question(qst, min_match=0.15)
+            highlightFields = ["content_ltks"] if highlight else []
+            matchText, keywords = self.qryr.question(qst, min_match="3<70% 8<50% 15<40% 20<30% 40<10%")
             if emb_mdl is None:
                 matchExprs = [matchText]
                 res = self.dataStore.search(src, highlightFields, filters, matchExprs, orderBy, offset, limit, idx_names, kb_ids)
@@ -108,7 +108,7 @@ class Dealer:
 
                 # If result is empty, try again with lower min_match
                 if total == 0:
-                    matchText, _ = self.qryr.question(qst, min_match=0.05)
+                    matchText, _ = self.qryr.question(qst, min_match="3<40% 8<20% 15<10% 40<5%")
                     filters.pop("doc_ids", None)
                     matchDense.extra_options["similarity"] = 0.17
                     res = self.dataStore.search(src, highlightFields, filters, [matchText, matchDense, fusionExpr], orderBy, offset, limit, idx_names, kb_ids)
@@ -340,6 +340,7 @@ class Dealer:
             chunk = sres.field[id]
             dnm = chunk["docnm_kwd"]
             did = chunk["doc_id"]
+            kid = chunk["kb_id"]
             position_list = chunk.get("position_list", "[]")
             d = {
                 "chunk_id": id,
@@ -363,10 +364,11 @@ class Dealer:
                     d["highlight"] = d["content_with_weight"]
             ranks["chunks"].append(d)
             if dnm not in ranks["doc_aggs"]:
-                ranks["doc_aggs"][dnm] = {"doc_id": did, "count": 0}
+                ranks["doc_aggs"][dnm] = {"doc_id": did, "kb_id": kid, "count": 0}
             ranks["doc_aggs"][dnm]["count"] += 1
         ranks["doc_aggs"] = [{"doc_name": k,
                               "doc_id": v["doc_id"],
+                              "kb_id": v["kb_id"],
                               "count": v["count"]} for k,
                              v in sorted(ranks["doc_aggs"].items(),
                                          key=lambda x:x[1]["count"] * -1)]
