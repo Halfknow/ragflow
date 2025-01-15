@@ -38,7 +38,6 @@ const KnowledgeList = () => {
     handleInputChange,
     loading,
   } = useInfiniteFetchKnowledgeList();
-  console.log('🚀 ~ KnowledgeList ~ data:', data);
   const nextList = data?.pages?.flatMap((x) => x.kbs) ?? [];
 
   const total = useMemo(() => {
@@ -89,9 +88,12 @@ const KnowledgeList = () => {
             className={styles.knowledgeCardContainer}
           >
             {nextList?.length > 0 ? (
-              nextList.map((item: any) => {
+              nextList.map((item: any, index: number) => {
                 return (
-                  <KnowledgeCard item={item} key={item.name}></KnowledgeCard>
+                  <KnowledgeCard
+                    item={item}
+                    key={`${item?.name}-${index}`}
+                  ></KnowledgeCard>
                 );
               })
             ) : (

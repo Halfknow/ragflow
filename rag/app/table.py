@@ -66,6 +66,8 @@ class Excel(ExcelParser):
                     continue
                 data.append(row)
                 done += 1
+            if np.array(data).size == 0:
+                continue
             res.append(pd.DataFrame(np.array(data), columns=headers))
 
         callback(0.3, ("Extract records: {}~{}".format(from_page + 1, min(to_page, from_page + rn)) + (
@@ -183,7 +185,7 @@ def chunk(filename, binary=None, from_page=0, to_page=10000000000,
         "datetime": "_dt",
         "bool": "_kwd"}
     for df in dfs:
-        for n in ["id", "index", "idx"]:
+        for n in ["id", "_id", "index", "idx"]:
             if n in df.columns:
                 del df[n]
         clmns = df.columns.values

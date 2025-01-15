@@ -18,6 +18,9 @@ import json
 from abc import ABC
 from copy import deepcopy
 from functools import partial
+
+import pandas as pd
+
 from agent.component import component_class
 from agent.component.base import ComponentBase
 
@@ -83,7 +86,8 @@ class Canvas(ABC):
                         }
                     },
                     "downstream": [],
-                    "upstream": []
+                    "upstream": [],
+                    "parent_id": ""
                 }
             },
             "history": [],
@@ -185,6 +189,7 @@ class Canvas(ABC):
             self.path.append(["begin"])
 
         self.path.append([])
+
         ran = -1
         waiting = []
         without_dependent_checking = []
@@ -206,18 +211,42 @@ class Canvas(ABC):
                                 waiting.append(c)
                             continue
                     yield "*'{}'* is running...🕞".format(self.get_compnent_name(c))
-                    ans = cpn.run(self.history, **kwargs)
+
+                    if cpn.component_name.lower() == "iteration":
+                        st_cpn = cpn.get_start()
+                        assert st_cpn, "Start component not found for Iteration."
+                        if not st_cpn["obj"].end():
+                            cpn = st_cpn["obj"]
+                            c = cpn._id
+
+                    try:
+                        ans = cpn.run(self.history, **kwargs)
+                    except Exception as e:
+                        logging.exception(f"Canvas.run got exception: {e}")
+                        self.path[-1].append(c)
+                        ran += 1
+                        raise e
                     self.path[-1].append(c)
+
             ran += 1
 
-        for m in prepare2run(self.components[self.path[-2][-1]]["downstream"]):
+        downstream = self.components[self.path[-2][-1]]["downstream"]
+        if not downstream and self.components[self.path[-2][-1]].get("parent_id"):
+            cid = self.path[-2][-1]
+            pid = self.components[cid]["parent_id"]
+            o, _ = self.components[cid]["obj"].output(allow_partial=False)
+            oo, _ = self.components[pid]["obj"].output(allow_partial=False)
+            self.components[pid]["obj"].set(pd.concat([oo, o], ignore_index=True))
+            downstream = [pid]
+
+        for m in prepare2run(downstream):
             yield {"content": m, "running_status": True}
 
         while 0 <= ran < len(self.path[-1]):
             logging.debug(f"Canvas.run: {ran} {self.path}")
             cpn_id = self.path[-1][ran]
             cpn = self.get_component(cpn_id)
-            if not cpn["downstream"]:
+            if not any([cpn["downstream"], cpn.get("parent_id"), waiting]):
                 break
 
             loop = self._find_loop()
@@ -228,26 +257,27 @@ class Canvas(ABC):
                 switch_out = cpn["obj"].output()[1].iloc[0, 0]
                 assert switch_out in self.components, \
                     "{}'s output: {} not valid.".format(cpn_id, switch_out)
-                try:
-                    for m in prepare2run([switch_out]):
-                        yield {"content": m, "running_status": True}
-                except Exception as e:
-                    logging.exception("Canvas.run got exception")
-                    raise e
+                for m in prepare2run([switch_out]):
+                    yield {"content": m, "running_status": True}
                 continue
 
-            try:
-                for m in prepare2run(cpn["downstream"]):
-                    yield {"content": m, "running_status": True}
-            except Exception as e:
-                logging.exception("Canvas.run got exception")
-                raise e
+            downstream = cpn["downstream"]
+            if not downstream and cpn.get("parent_id"):
+                pid = cpn["parent_id"]
+                _, o = cpn["obj"].output(allow_partial=False)
+                _, oo = self.components[pid]["obj"].output(allow_partial=False)
+                self.components[pid]["obj"].set_output(pd.concat([oo.dropna(axis=1), o.dropna(axis=1)], ignore_index=True))
+                downstream = [pid]
+
+            for m in prepare2run(downstream):
+                yield {"content": m, "running_status": True}
 
             if ran >= len(self.path[-1]) and waiting:
                 without_dependent_checking = waiting
                 waiting = []
                 for m in prepare2run(without_dependent_checking):
                     yield {"content": m, "running_status": True}
+                without_dependent_checking = []
                 ran -= 1
 
         if self.answer:
@@ -295,7 +325,7 @@ class Canvas(ABC):
             return False
 
         for i in range(len(path)):
-            if path[i].lower().find("answer") >= 0:
+            if path[i].lower().find("answer") == 0 or path[i].lower().find("iterationitem") == 0:
                 path = path[:i]
                 break
 
@@ -331,3 +361,6 @@ class Canvas(ABC):
 
     def get_preset_param(self):
         return self.components["begin"]["obj"]._param.query
+
+    def get_component_input_elements(self, cpnnm):
+        return self.components[cpnnm]["obj"].get_input_elements()

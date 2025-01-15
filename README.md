@@ -20,7 +20,7 @@
         <img alt="Static Badge" src="https://img.shields.io/badge/Online-Demo-4e6b99">
     </a>
     <a href="https://hub.docker.com/r/infiniflow/ragflow" target="_blank">
-        <img src="https://img.shields.io/badge/docker_pull-ragflow:v0.14.1-brightgreen" alt="docker pull infiniflow/ragflow:v0.14.1">
+        <img src="https://img.shields.io/badge/docker_pull-ragflow:v0.15.1-brightgreen" alt="docker pull infiniflow/ragflow:v0.15.1">
     </a>
     <a href="https://github.com/infiniflow/ragflow/releases/latest">
         <img src="https://img.shields.io/github/v/release/infiniflow/ragflow?color=blue&label=Latest%20Release" alt="Latest Release">
@@ -32,7 +32,7 @@
 
 <h4 align="center">
   <a href="https://ragflow.io/docs/dev/">Document</a> |
-  <a href="https://github.com/infiniflow/ragflow/issues/162">Roadmap</a> |
+  <a href="https://github.com/infiniflow/ragflow/issues/4214">Roadmap</a> |
   <a href="https://twitter.com/infiniflowai">Twitter</a> |
   <a href="https://discord.gg/4XxujFgUN7">Discord</a> |
   <a href="https://demo.ragflow.io">Demo</a>
@@ -75,6 +75,7 @@ Try our demo at [https://demo.ragflow.io](https://demo.ragflow.io).
 
 ## 🔥 Latest Updates
 
+- 2024-12-18 Upgrades Document Layout Analysis model in Deepdoc.
 - 2024-12-04 Adds support for pagerank score in knowledge base.
 - 2024-11-22 Adds more variables to Agent.
 - 2024-11-01 Adds keyword extraction and related question generation to the parsed chunks to improve the accuracy of retrieval.
@@ -167,23 +168,19 @@ releases! 🌟
 
 3. Start up the server using the pre-built Docker images:
 
-   > The command below downloads the v0.14.1 version Docker image for RAGFlow slim (`v0.14.1-slim`). Note that RAGFlow slim
-   Docker images do not include embedding models or Python libraries and hence are approximately 2 GB in size.
+   > The command below downloads the `v0.15.1-slim` edition of the RAGFlow Docker image. Refer to the following table for descriptions of different RAGFlow editions. To download an RAGFlow edition different from `v0.15.1-slim`, update the `RAGFLOW_IMAGE` variable accordingly in **docker/.env** before using `docker compose` to start the server. For example: set `RAGFLOW_IMAGE=infiniflow/ragflow:v0.15.1` for the full edition `v0.15.1`.
 
    ```bash
    $ cd ragflow
    $ docker compose -f docker/docker-compose.yml up -d
    ```
 
-   | RAGFLOW_IMAGE tag in docker/.env | size  | Including embedding models and related Python packages? | comments               |
-   | -------------------------------- | ----- | ------------------------------------------------------- | ---------------------- |
-   | v0.14.1                          | ~9 GB | YES                                                     | stable release         |
-   | v0.14.1-slim                     | ~2 GB | NO                                                      | stable release         |
-   | v0.15.0-dev1                     | ~9 GB | YES                                                     | unstable beta release  |
-   | v0.15.0-dev1-slim                | ~2 GB | NO                                                      | unstable beta release  |
-   | nightly                          | ~9 GB | YES                                                     | unstable nightly build |
-   | nightly-slim                     | ~2 GB | NO                                                      | unstable nightly build |
-
+   | RAGFlow image tag | Image size (GB) | Has embedding models? | Stable?                  |
+   | ----------------- | --------------- | --------------------- | ------------------------ |
+   | v0.15.1           | &approx;9       | :heavy_check_mark:    | Stable release           |
+   | v0.15.1-slim      | &approx;2       | ❌                    | Stable release           |
+   | nightly           | &approx;9       | :heavy_check_mark:    | *Unstable* nightly build |
+   | nightly-slim      | &approx;2       | ❌                    | *Unstable* nightly build |
 
 4. Check the server status after having the server up and running:
 
@@ -283,17 +280,16 @@ docker build -f Dockerfile -t infiniflow/ragflow:nightly .
 
 ## 🔨 Launch service from source for development
 
-1. Install Poetry, or skip this step if it is already installed:
+1. Install uv, or skip this step if it is already installed:
    ```bash
-   pipx install poetry
-   export POETRY_VIRTUALENVS_CREATE=true POETRY_VIRTUALENVS_IN_PROJECT=true
+   pipx install uv
    ```
 
 2. Clone the source code and install Python dependencies:
    ```bash
    git clone https://github.com/infiniflow/ragflow.git
    cd ragflow/
-   ~/.local/bin/poetry install --sync --no-root --with=full # install RAGFlow dependent python modules
+   uv sync --python 3.10 --all-extras # install RAGFlow dependent python modules
    ```
 
 3. Launch the dependent services (MinIO, Elasticsearch, Redis, and MySQL) using Docker Compose:
@@ -322,7 +318,7 @@ docker build -f Dockerfile -t infiniflow/ragflow:nightly .
 6. Install frontend dependencies:
    ```bash
    cd web
-   npm install --force
+   npm install
    ```  
 7. Launch frontend service:
    ```bash
@@ -342,7 +338,7 @@ docker build -f Dockerfile -t infiniflow/ragflow:nightly .
 
 ## 📜 Roadmap
 
-See the [RAGFlow Roadmap 2024](https://github.com/infiniflow/ragflow/issues/162)
+See the [RAGFlow Roadmap 2025](https://github.com/infiniflow/ragflow/issues/4214)
 
 ## 🏄 Community
 

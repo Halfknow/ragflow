@@ -12,10 +12,11 @@ WORKDIR /ragflow
 # Copy models downloaded via download_deps.py
 RUN mkdir -p /ragflow/rag/res/deepdoc /root/.ragflow
 RUN --mount=type=bind,from=infiniflow/ragflow_deps:latest,source=/huggingface.co,target=/huggingface.co \
+    cp /huggingface.co/InfiniFlow/huqie/huqie.txt.trie /ragflow/rag/res/ && \
     tar --exclude='.*' -cf - \
         /huggingface.co/InfiniFlow/text_concat_xgb_v1.0 \
         /huggingface.co/InfiniFlow/deepdoc \
-        | tar -xf - --strip-components=3 -C /ragflow/rag/res/deepdoc
+        | tar -xf - --strip-components=3 -C /ragflow/rag/res/deepdoc 
 RUN --mount=type=bind,from=infiniflow/ragflow_deps:latest,source=/huggingface.co,target=/huggingface.co \
     if [ "$LIGHTEN" != "1" ]; then \
         (tar -cf - \
@@ -34,9 +35,15 @@ RUN --mount=type=bind,from=infiniflow/ragflow_deps:latest,source=/,target=/deps 
     cp /deps/cl100k_base.tiktoken /ragflow/9b5ad71b2ce5302211f9c61530b329a4922fc6a4
 
 ENV TIKA_SERVER_JAR="file:///ragflow/tika-server-standard-3.0.0.jar"
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Setup apt
-# cv2 requires libGL.so.1
+# Python package and implicit dependencies:
+# opencv-python: libglib2.0-0 libglx-mesa0 libgl1
+# aspose-slides: pkg-config libicu-dev libgdiplus         libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+# python-pptx:   default-jdk                              tika-server-standard-3.0.0.jar
+# selenium:      libatk-bridge2.0-0                       chrome-linux64-121-0-6167-85
+# Building C extensions: libpython3-dev libgtk-4-1 libnss3 xdg-utils libgbm-dev
 RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/apt,sharing=locked \
     if [ "$NEED_MIRROR" == "1" ]; then \
         sed -i 's|http://archive.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list; \
@@ -47,25 +54,25 @@ RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/apt,sharing=locked \
     apt update && \
     apt --no-install-recommends install -y ca-certificates && \
     apt update && \
-    DEBIAN_FRONTEND=noninteractive apt install -y curl libpython3-dev nginx libglib2.0-0 libglx-mesa0 pkg-config libicu-dev libgdiplus default-jdk python3-pip pipx \
-    libatk-bridge2.0-0 libgtk-4-1 libnss3 xdg-utils unzip libgbm-dev wget git nginx libgl1 vim less
+    apt install -y libglib2.0-0 libglx-mesa0 libgl1 && \
+    apt install -y pkg-config libicu-dev libgdiplus && \
+    apt install -y default-jdk && \
+    apt install -y libatk-bridge2.0-0 && \
+    apt install -y libpython3-dev libgtk-4-1 libnss3 xdg-utils libgbm-dev && \
+    apt install -y python3-pip pipx nginx unzip curl wget git vim less
 
 RUN if [ "$NEED_MIRROR" == "1" ]; then \
         pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
         pip3 config set global.trusted-host pypi.tuna.tsinghua.edu.cn; \
+        mkdir -p /etc/uv && \
+        echo "[[index]]" > /etc/uv/uv.toml && \
+        echo 'url = "https://pypi.tuna.tsinghua.edu.cn/simple"' >> /etc/uv/uv.toml && \
+        echo "default = true" >> /etc/uv/uv.toml; \
     fi; \
-    pipx install poetry; \
-    if [ "$NEED_MIRROR" == "1" ]; then \
-        pipx inject poetry poetry-plugin-pypi-mirror; \
-    fi
+    pipx install uv
 
 ENV PYTHONDONTWRITEBYTECODE=1 DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 ENV PATH=/root/.local/bin:$PATH
-# Configure Poetry
-ENV POETRY_NO_INTERACTION=1
-ENV POETRY_VIRTUALENVS_IN_PROJECT=true
-ENV POETRY_VIRTUALENVS_CREATE=true
-ENV POETRY_REQUESTS_TIMEOUT=15
 
 # nodejs 12.22 on Ubuntu 22.04 is too old
 RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/apt,sharing=locked \
@@ -73,7 +80,26 @@ RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/apt,sharing=locked \
     apt purge -y nodejs npm && \
     apt autoremove && \
     apt update && \
-    apt install -y nodejs cargo
+    apt install -y nodejs cargo 
+
+
+# Add msssql ODBC driver
+# macOS ARM64 environment, install msodbcsql18.
+# general x86_64 environment, install msodbcsql17.
+RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/apt,sharing=locked \
+    curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
+    curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list > /etc/apt/sources.list.d/mssql-release.list && \
+    apt update && \
+    if [ -n "$ARCH" ] && [ "$ARCH" = "arm64" ]; then \
+        # MacOS ARM64 
+        ACCEPT_EULA=Y apt install -y unixodbc-dev msodbcsql18; \
+    else \
+        # (x86_64)
+        ACCEPT_EULA=Y apt install -y unixodbc-dev msodbcsql17; \
+    fi || \
+    { echo "Failed to install ODBC driver"; exit 1; }
+
+
 
 # Add dependencies of selenium
 RUN --mount=type=bind,from=infiniflow/ragflow_deps:latest,source=/chrome-linux64-121-0-6167-85,target=/chrome-linux64.zip \
@@ -101,23 +127,20 @@ USER root
 
 WORKDIR /ragflow
 
-# install dependencies from poetry.lock file
-COPY pyproject.toml poetry.toml poetry.lock ./
+# install dependencies from uv.lock file
+COPY pyproject.toml uv.lock ./
 
-RUN --mount=type=cache,id=ragflow_poetry,target=/root/.cache/pypoetry,sharing=locked \
-    if [ "$NEED_MIRROR" == "1" ]; then \
-        export POETRY_PYPI_MIRROR_URL=https://pypi.tuna.tsinghua.edu.cn/simple/; \
-    fi; \
+RUN --mount=type=cache,id=ragflow_uv,target=/root/.cache/uv,sharing=locked \
     if [ "$LIGHTEN" == "1" ]; then \
-        poetry install --no-root; \
+        uv sync --python 3.10 --frozen; \
     else \
-        poetry install --no-root --with=full; \
+        uv sync --python 3.10 --frozen --all-extras; \
     fi
 
 COPY web web
 COPY docs docs
 RUN --mount=type=cache,id=ragflow_npm,target=/root/.npm,sharing=locked \
-    cd web && npm install --force && npm run build
+    cd web && npm install && npm run build
 
 COPY .git /ragflow/.git
 
@@ -150,7 +173,7 @@ COPY deepdoc deepdoc
 COPY rag rag
 COPY agent agent
 COPY graphrag graphrag
-COPY pyproject.toml poetry.toml poetry.lock ./
+COPY pyproject.toml uv.lock ./
 
 COPY docker/service_conf.yaml.template ./conf/service_conf.yaml.template
 COPY docker/entrypoint.sh ./entrypoint.sh
@@ -160,5 +183,4 @@ RUN chmod +x ./entrypoint.sh
 COPY --from=builder /ragflow/web/dist /ragflow/web/dist
 
 COPY --from=builder /ragflow/VERSION /ragflow/VERSION
-
 ENTRYPOINT ["./entrypoint.sh"]

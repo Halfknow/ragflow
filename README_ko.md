@@ -20,7 +20,7 @@
         <img alt="Static Badge" src="https://img.shields.io/badge/Online-Demo-4e6b99">
     </a>
     <a href="https://hub.docker.com/r/infiniflow/ragflow" target="_blank">
-        <img src="https://img.shields.io/badge/docker_pull-ragflow:v0.14.1-brightgreen" alt="docker pull infiniflow/ragflow:v0.14.1">
+        <img src="https://img.shields.io/badge/docker_pull-ragflow:v0.15.1-brightgreen" alt="docker pull infiniflow/ragflow:v0.15.1">
     </a>
     <a href="https://github.com/infiniflow/ragflow/releases/latest">
         <img src="https://img.shields.io/github/v/release/infiniflow/ragflow?color=blue&label=Latest%20Release" alt="Latest Release">
@@ -33,7 +33,7 @@
 
 <h4 align="center">
   <a href="https://ragflow.io/docs/dev/">Document</a> |
-  <a href="https://github.com/infiniflow/ragflow/issues/162">Roadmap</a> |
+  <a href="https://github.com/infiniflow/ragflow/issues/4214">Roadmap</a> |
   <a href="https://twitter.com/infiniflowai">Twitter</a> |
   <a href="https://discord.gg/4XxujFgUN7">Discord</a> |
   <a href="https://demo.ragflow.io">Demo</a>
@@ -56,6 +56,8 @@
 
 ## 🔥 업데이트
 
+- 2024-12-18 Deepdoc의 문서 레이아웃 분석 모델 업그레이드.
+  
 - 2024-12-04 지식베이스에 대한 페이지랭크 점수를 지원합니다.
 
 - 2024-11-22 에이전트의 변수 정의 및 사용을 개선했습니다.
@@ -145,25 +147,19 @@
 
 3. 미리 빌드된 Docker 이미지를 생성하고 서버를 시작하세요:
 
-   > 아래의 명령은 RAGFlow slim(v0.14.1-slim)의 개발 버전 Docker 이미지를 다운로드합니다. RAGFlow slim Docker 이미지에는 임베딩 모델이나 Python 라이브러리가 포함되어 있지 않으므로 크기는 약 1GB입니다.
+   > 아래 명령어는 RAGFlow Docker 이미지의 v0.15.1-slim 버전을 다운로드합니다. 다양한 RAGFlow 버전에 대한 설명은 다음 표를 참조하십시오. v0.15.1-slim과 다른 RAGFlow 버전을 다운로드하려면, docker/.env 파일에서 RAGFLOW_IMAGE 변수를 적절히 업데이트한 후 docker compose를 사용하여 서버를 시작하십시오. 예를 들어, 전체 버전인 v0.15.1을 다운로드하려면 RAGFLOW_IMAGE=infiniflow/ragflow:v0.15.1로 설정합니다.
 
    ```bash
    $ cd ragflow
    $ docker compose -f docker/docker-compose.yml up -d
    ```
-   
 
-   | RAGFLOW_IMAGE tag in docker/.env | size  | Including embedding models and related Python packages? | comments               |
-   | -------------------------------- | ----- | ------------------------------------------------------- | ---------------------- |
-   | v0.14.1                          | ~9 GB | YES                                                     | stable release         |
-   | v0.14.1-slim                     | ~2 GB | NO                                                      | stable release         |
-   | v0.15.0-dev1                     | ~9 GB | YES                                                     | unstable beta release  |
-   | v0.15.0-dev1-slim                | ~2 GB | NO                                                      | unstable beta release  |
-   | nightly                          | ~9 GB | YES                                                     | unstable nightly build |
-   | nightly-slim                     | ~2 GB | NO                                                      | unstable nightly build |
-
-
-
+   | RAGFlow image tag | Image size (GB) | Has embedding models? | Stable?                  |
+   | ----------------- | --------------- | --------------------- | ------------------------ |
+   | v0.15.1           | &approx;9       | :heavy_check_mark:    | Stable release           |
+   | v0.15.1-slim      | &approx;2       | ❌                    | Stable release           |
+   | nightly           | &approx;9       | :heavy_check_mark:    | *Unstable* nightly build |
+   | nightly-slim      | &approx;2       | ❌                    | *Unstable* nightly build |
 
 4. 서버가 시작된 후 서버 상태를 확인하세요:
 
@@ -251,17 +247,16 @@ docker build -f Dockerfile -t infiniflow/ragflow:nightly .
 
 ## 🔨 소스 코드로 서비스를 시작합니다.
 
-1. Poetry를 설치하거나 이미 설치된 경우 이 단계를 건너뜁니다:
+1. uv를 설치하거나 이미 설치된 경우 이 단계를 건너뜁니다:
    ```bash
-   pipx install poetry
-   export POETRY_VIRTUALENVS_CREATE=true POETRY_VIRTUALENVS_IN_PROJECT=true
+   pipx install uv
    ```
 
 2. 소스 코드를 클론하고 Python 의존성을 설치합니다:
    ```bash
    git clone https://github.com/infiniflow/ragflow.git
    cd ragflow/
-   ~/.local/bin/poetry install --sync --no-root # install RAGFlow dependent python modules
+   uv sync --python 3.10 --all-extras # install RAGFlow dependent python modules
    ```
 
 3. Docker Compose를 사용하여 의존 서비스(MinIO, Elasticsearch, Redis 및 MySQL)를 시작합니다:
@@ -290,7 +285,7 @@ docker build -f Dockerfile -t infiniflow/ragflow:nightly .
 6. 프론트엔드 의존성을 설치합니다:  
    ```bash
    cd web
-   npm install --force
+   npm install
    ```  
 7. 프론트엔드 서비스를 시작합니다:  
    ```bash
@@ -310,7 +305,7 @@ docker build -f Dockerfile -t infiniflow/ragflow:nightly .
 
 ## 📜 로드맵
 
-[RAGFlow 로드맵 2024](https://github.com/infiniflow/ragflow/issues/162)을 확인하세요.
+[RAGFlow 로드맵 2025](https://github.com/infiniflow/ragflow/issues/4214)을 확인하세요.
 
 ## 🏄 커뮤니티
 

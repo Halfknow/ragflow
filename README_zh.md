@@ -20,7 +20,7 @@
         <img alt="Static Badge" src="https://img.shields.io/badge/Online-Demo-4e6b99">
     </a>
     <a href="https://hub.docker.com/r/infiniflow/ragflow" target="_blank">
-        <img src="https://img.shields.io/badge/docker_pull-ragflow:v0.14.1-brightgreen" alt="docker pull infiniflow/ragflow:v0.14.1">
+        <img src="https://img.shields.io/badge/docker_pull-ragflow:v0.15.1-brightgreen" alt="docker pull infiniflow/ragflow:v0.15.1">
     </a>
     <a href="https://github.com/infiniflow/ragflow/releases/latest">
         <img src="https://img.shields.io/github/v/release/infiniflow/ragflow?color=blue&label=Latest%20Release" alt="Latest Release">
@@ -33,7 +33,7 @@
 
 <h4 align="center">
   <a href="https://ragflow.io/docs/dev/">Document</a> |
-  <a href="https://github.com/infiniflow/ragflow/issues/162">Roadmap</a> |
+  <a href="https://github.com/infiniflow/ragflow/issues/4214">Roadmap</a> |
   <a href="https://twitter.com/infiniflowai">Twitter</a> |
   <a href="https://discord.gg/4XxujFgUN7">Discord</a> |
   <a href="https://demo.ragflow.io">Demo</a>
@@ -54,6 +54,7 @@
 
 ## 🔥 近期更新
 
+- 2024-12-18 升级了 Deepdoc 的文档布局分析模型。
 - 2024-12-04 支持知识库的 Pagerank 分数。
 - 2024-11-22 完善了 Agent 中的变量定义和使用。
 - 2024-11-01 对解析后的 chunk 加入关键词抽取和相关问题生成以提高召回的准确度。
@@ -142,22 +143,24 @@
 
 3. 进入 **docker** 文件夹，利用提前编译好的 Docker 镜像启动服务器：
 
-   > 运行以下命令会自动下载 v0.14.1 版的 RAGFlow slim Docker 镜像（`v0.14.1-slim`），该镜像并不包含 embedding 模型以及一些 Python 库，因此镜像大小约 1GB。
+   > 运行以下命令会自动下载 RAGFlow slim Docker 镜像 `v0.15.1-slim`。请参考下表查看不同 Docker 发行版的描述。如需下载不同于 `v0.15.1-slim` 的 Docker 镜像，请在运行 `docker compose` 启动服务之前先更新 **docker/.env** 文件内的 `RAGFLOW_IMAGE` 变量。比如，你可以通过设置 `RAGFLOW_IMAGE=infiniflow/ragflow:v0.15.1` 来下载 RAGFlow 镜像的 `v0.15.1` 完整发行版。
 
    ```bash
    $ cd ragflow
    $ docker compose -f docker/docker-compose.yml up -d
    ```
 
-   | RAGFLOW_IMAGE tag in docker/.env | 尺寸  | 内置 embedding 模型和相关 Python 库?                    | 描述                   |
-   | -------------------------------- | ----- | ------------------------------------------------------- | ---------------------- |
-   | v0.14.1                          | ~9 GB | YES                                                     | stable release         |
-   | v0.14.1-slim                     | ~2 GB | NO                                                      | stable release         |
-   | v0.15.0-dev1                     | ~9 GB | YES                                                     | unstable beta release  |
-   | v0.15.0-dev1-slim                | ~2 GB | NO                                                      | unstable beta release  |
-   | nightly                          | ~9 GB | YES                                                     | unstable nightly build |
-   | nightly-slim                     | ~2 GB | NO                                                      | unstable nightly build |
+   | RAGFlow image tag | Image size (GB) | Has embedding models? | Stable?                  |
+   | ----------------- | --------------- | --------------------- | ------------------------ |
+   | v0.15.1           | &approx;9       | :heavy_check_mark:    | Stable release           |
+   | v0.15.1-slim      | &approx;2       | ❌                    | Stable release           |
+   | nightly           | &approx;9       | :heavy_check_mark:    | *Unstable* nightly build |
+   | nightly-slim      | &approx;2       | ❌                    | *Unstable* nightly build |
 
+   > [!TIP] 
+   > 如果你遇到 Docker 镜像拉不下来的问题，可以在 **docker/.env** 文件内根据变量 `RAGFLOW_IMAGE` 的注释提示选择华为云或者阿里云的相应镜像。
+   > - 华为云镜像名：`swr.cn-north-4.myhuaweicloud.com/infiniflow/ragflow`
+   > - 阿里云镜像名：`registry.cn-hangzhou.aliyuncs.com/infiniflow/ragflow`
 
 4. 服务器启动成功后再次确认服务器状态：
 
@@ -255,19 +258,17 @@ docker build --build-arg NEED_MIRROR=1 -f Dockerfile -t infiniflow/ragflow:night
 
 ## 🔨 以源代码启动服务
 
-1. 安装 Poetry。如已经安装，可跳过本步骤：  
+1. 安装 uv。如已经安装，可跳过本步骤：  
    ```bash
-   pipx install poetry
-   pipx inject poetry poetry-plugin-pypi-mirror
-   export POETRY_VIRTUALENVS_CREATE=true POETRY_VIRTUALENVS_IN_PROJECT=true
-   export POETRY_PYPI_MIRROR_URL=https://pypi.tuna.tsinghua.edu.cn/simple/
+   pipx install uv
+   export UV_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
    ```
 
 2. 下载源代码并安装 Python 依赖：  
    ```bash
    git clone https://github.com/infiniflow/ragflow.git
    cd ragflow/
-   ~/.local/bin/poetry install --sync --no-root # install RAGFlow dependent python modules
+   uv sync --python 3.10 --all-extras # install RAGFlow dependent python modules
    ```
 
 3. 通过 Docker Compose 启动依赖的服务（MinIO, Elasticsearch, Redis, and MySQL）：  
@@ -296,7 +297,7 @@ docker build --build-arg NEED_MIRROR=1 -f Dockerfile -t infiniflow/ragflow:night
 6. 安装前端依赖：  
    ```bash
    cd web
-   npm install --force
+   npm install
    ```  
 7. 启动前端服务：  
    ```bash
@@ -316,7 +317,7 @@ docker build --build-arg NEED_MIRROR=1 -f Dockerfile -t infiniflow/ragflow:night
 
 ## 📜 路线图
 
-详见 [RAGFlow Roadmap 2024](https://github.com/infiniflow/ragflow/issues/162) 。
+详见 [RAGFlow Roadmap 2025](https://github.com/infiniflow/ragflow/issues/4214) 。
 
 ## 🏄 开源社区
 

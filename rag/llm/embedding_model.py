@@ -30,7 +30,7 @@ import asyncio
 from api import settings
 from api.utils.file_utils import get_home_cache_dir
 from rag.utils import num_tokens_from_string, truncate
-import google.generativeai as genai 
+import google.generativeai as genai
 import json
 
 
@@ -47,6 +47,7 @@ class Base(ABC):
 
 class DefaultEmbedding(Base):
     _model = None
+    _model_name = ""
     _model_lock = threading.Lock()
     def __init__(self, key, model_name, **kwargs):
         """
@@ -60,15 +61,16 @@ class DefaultEmbedding(Base):
         ^_-
 
         """
-        if not settings.LIGHTEN and not DefaultEmbedding._model:
+        if not settings.LIGHTEN:
             with DefaultEmbedding._model_lock:
                 from FlagEmbedding import FlagModel
                 import torch
-                if not DefaultEmbedding._model:
+                if not DefaultEmbedding._model or model_name != DefaultEmbedding._model_name:
                     try:
                         DefaultEmbedding._model = FlagModel(os.path.join(get_home_cache_dir(), re.sub(r"^[a-zA-Z0-9]+/", "", model_name)),
                                                             query_instruction_for_retrieval="为这个句子生成表示以用于检索相关文章：",
                                                             use_fp16=torch.cuda.is_available())
+                        DefaultEmbedding._model_name = model_name
                     except Exception:
                         model_dir = snapshot_download(repo_id="BAAI/bge-large-zh-v1.5",
                                                       local_dir=os.path.join(get_home_cache_dir(), re.sub(r"^[a-zA-Z0-9]+/", "", model_name)),
@@ -77,6 +79,7 @@ class DefaultEmbedding(Base):
                                                             query_instruction_for_retrieval="为这个句子生成表示以用于检索相关文章：",
                                                             use_fp16=torch.cuda.is_available())
         self._model = DefaultEmbedding._model
+        self._model_name = DefaultEmbedding._model_name
 
     def encode(self, texts: list):
         batch_size = 16
@@ -214,6 +217,14 @@ class ZhipuEmbed(Base):
     def encode(self, texts: list):
         arr = []
         tks_num = 0
+        MAX_LEN = -1
+        if self.model_name.lower() == "embedding-2":
+            MAX_LEN = 512
+        if self.model_name.lower() == "embedding-3":
+            MAX_LEN = 3072
+        if MAX_LEN > 0:
+            texts = [truncate(t, MAX_LEN) for t in texts]
+
         for txt in texts:
             res = self.client.embeddings.create(input=txt,
                                                 model=self.model_name)
@@ -248,9 +259,8 @@ class OllamaEmbed(Base):
         return np.array(res["embedding"]), 128
 
 
-class FastEmbed(Base):
-    _model = None
-
+class FastEmbed(DefaultEmbedding):
+    
     def __init__(
             self,
             key: str | None = None,
@@ -259,9 +269,21 @@ class FastEmbed(Base):
             threads: int | None = None,
             **kwargs,
     ):
-        if not settings.LIGHTEN and not FastEmbed._model:
-            from fastembed import TextEmbedding
-            self._model = TextEmbedding(model_name, cache_dir, threads, **kwargs)
+        if not settings.LIGHTEN:
+            with FastEmbed._model_lock:
+                from fastembed import TextEmbedding
+                if not DefaultEmbedding._model or model_name != DefaultEmbedding._model_name:
+                    try:
+                        DefaultEmbedding._model = TextEmbedding(model_name, cache_dir, threads, **kwargs)
+                        DefaultEmbedding._model_name = model_name
+                    except Exception:
+                        cache_dir = snapshot_download(repo_id="BAAI/bge-small-en-v1.5",
+                                                      local_dir=os.path.join(get_home_cache_dir(),
+                                                                             re.sub(r"^[a-zA-Z0-9]+/", "", model_name)),
+                                                      local_dir_use_symlinks=False)
+                        DefaultEmbedding._model = TextEmbedding(model_name, cache_dir, threads, **kwargs)
+        self._model = DefaultEmbedding._model
+        self._model_name = model_name
 
     def encode(self, texts: list):
         # Using the internal tokenizer to encode the texts and get the total
@@ -484,6 +506,7 @@ class BedrockEmbed(Base):
 
         return np.array(embeddings), token_count
 
+
 class GeminiEmbed(Base):
     def __init__(self, key, model_name='models/text-embedding-004',
                  **kwargs):
@@ -499,7 +522,7 @@ class GeminiEmbed(Base):
         for i in range(0, len(texts), batch_size):
             result = genai.embed_content(
                 model=self.model_name,
-                content=texts[i, i + batch_size],
+                content=texts[i: i + batch_size],
                 task_type="retrieval_document",
                 title="Embedding of single string")
             ress.extend(result['embedding'])
@@ -513,7 +536,8 @@ class GeminiEmbed(Base):
             task_type="retrieval_document",
             title="Embedding of single string")
         token_count = num_tokens_from_string(text)
-        return np.array(result['embedding']),token_count
+        return np.array(result['embedding']), token_count
+
 
 class NvidiaEmbed(Base):
     def __init__(
@@ -791,3 +815,14 @@ class VolcEngineEmbed(OpenAIEmbed):
         ark_api_key = json.loads(key).get('ark_api_key', '')
         model_name = json.loads(key).get('ep_id', '') + json.loads(key).get('endpoint_id', '')
         super().__init__(ark_api_key,model_name,base_url)
+
+class GPUStackEmbed(OpenAIEmbed):
+    def __init__(self, key, model_name, base_url):
+        if not base_url:
+            raise ValueError("url cannot be None")
+        if base_url.split("/")[-1] != "v1-openai":
+            base_url = os.path.join(base_url, "v1-openai")
+
+        print(key,base_url)
+        self.client = OpenAI(api_key=key, base_url=base_url)
+        self.model_name = model_name

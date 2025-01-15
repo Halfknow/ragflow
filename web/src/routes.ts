@@ -7,6 +7,10 @@ export enum Routes {
   Agent = '/agent',
   Search = '/next-search',
   Chat = '/next-chat',
+  Files = '/files',
+  ProfileSetting = '/profile-setting',
+  DatasetTesting = '/testing',
+  DatasetSetting = '/setting',
 }
 
 const routes = [
@@ -127,18 +131,8 @@ const routes = [
     layout: false,
   },
   {
-    path: 'force',
-    component: '@/pages/force-graph',
-    layout: false,
-  },
-  {
     path: '/*',
     component: '@/pages/404',
-    layout: false,
-  },
-  {
-    path: '/demo',
-    component: '@/pages/demo',
     layout: false,
   },
   {
@@ -197,6 +191,17 @@ const routes = [
     ],
   },
   {
+    path: Routes.Files,
+    layout: false,
+    component: '@/layouts/next',
+    routes: [
+      {
+        path: Routes.Files,
+        component: `@/pages${Routes.Files}`,
+      },
+    ],
+  },
+  {
     path: Routes.DatasetBase,
     layout: false,
     component: '@/layouts/next',
@@ -211,42 +216,45 @@ const routes = [
             component: `@/pages${Routes.Dataset}`,
           },
           {
-            path: `${Routes.DatasetBase}/configuration`,
-            component: `@/pages${Routes.DatasetBase}/settings`,
+            path: `${Routes.DatasetBase}${Routes.DatasetSetting}`,
+            component: `@/pages${Routes.DatasetBase}${Routes.DatasetSetting}`,
           },
           {
-            path: `${Routes.DatasetBase}/testing`,
-            component: `@/pages${Routes.DatasetBase}/testing`,
+            path: `${Routes.DatasetBase}${Routes.DatasetTesting}`,
+            component: `@/pages${Routes.DatasetBase}${Routes.DatasetTesting}`,
           },
         ],
       },
     ],
   },
   {
-    path: '/profile-setting',
+    path: Routes.ProfileSetting,
     layout: false,
-    component: '@/pages/profile-setting',
+    component: `@/pages${Routes.ProfileSetting}`,
     routes: [
-      { path: '/profile-setting', redirect: '/profile-setting/profile' },
       {
-        path: '/profile-setting/profile',
-        component: '@/pages/profile-setting/profile',
+        path: Routes.ProfileSetting,
+        redirect: `${Routes.ProfileSetting}/profile`,
       },
       {
-        path: '/profile-setting/team',
-        component: '@/pages/profile-setting/team',
+        path: `${Routes.ProfileSetting}/profile`,
+        component: `@/pages${Routes.ProfileSetting}/profile`,
       },
       {
-        path: '/profile-setting/plan',
-        component: '@/pages/profile-setting/plan',
+        path: `${Routes.ProfileSetting}/team`,
+        component: `@/pages${Routes.ProfileSetting}/team`,
       },
       {
-        path: '/profile-setting/model',
-        component: '@/pages/profile-setting/model',
+        path: `${Routes.ProfileSetting}/plan`,
+        component: `@/pages${Routes.ProfileSetting}/plan`,
       },
       {
-        path: '/profile-setting/prompt',
-        component: '@/pages/profile-setting/prompt',
+        path: `${Routes.ProfileSetting}/model`,
+        component: `@/pages${Routes.ProfileSetting}/model`,
+      },
+      {
+        path: `${Routes.ProfileSetting}/prompt`,
+        component: `@/pages${Routes.ProfileSetting}/prompt`,
       },
     ],
   },
