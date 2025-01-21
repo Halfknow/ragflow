@@ -658,3 +658,31 @@ def set_meta():
         return get_json_result(data=True)
     except Exception as e:
         return server_error_response(e)
+
+
+@manager.route('/upload_oss', methods=['POST'])
+@login_required
+@validate_request("kb_id")
+def upload_oss():
+    kb_id = request.form.get("kb_id")
+    if not kb_id:
+        return get_json_result(
+            data=False, message='Lack of "KB ID"', code=settings.RetCode.ARGUMENT_ERROR)
+    
+    oss_links = request.form.getlist('oss_links')
+    file_names = request.form.getlist('file_names')
+    if not oss_links or not file_names or len(oss_links) != len(file_names):
+        return get_json_result(
+            data=False, message='Invalid OSS links or file names!', code=settings.RetCode.ARGUMENT_ERROR)
+
+    e, kb = KnowledgebaseService.get_by_id(kb_id)
+    if not e:
+        raise LookupError("Can't find this knowledgebase!")
+
+    err, files = FileService.upload_oss_documents(kb, oss_links, file_names, current_user.id)
+    if err:
+        return get_json_result(
+            data=False, message="\n".join(err), code=settings.RetCode.SERVER_ERROR)
+    
+    doc_ids = [file[0].get("id") for file in files]
+    return get_json_result(data={"success": True, "doc_ids": doc_ids})

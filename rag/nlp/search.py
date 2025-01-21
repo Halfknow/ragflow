@@ -97,7 +97,7 @@ class Dealer:
             logging.debug("Dealer.search TOTAL: {}".format(total))
         else:
             highlightFields = ["content_ltks"] if highlight else []
-            matchText, keywords = self.qryr.question(qst, min_match="3<70% 8<50% 15<40% 20<30% 40<10%")
+            matchText, keywords = self.qryr.question(qst, min_match="3<50% 8<40% 15<30% 25<20% 40<10%")
             if emb_mdl is None:
                 matchExprs = [matchText]
                 res = self.dataStore.search(src, highlightFields, filters, matchExprs, orderBy, offset, limit,

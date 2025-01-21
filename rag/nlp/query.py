@@ -67,7 +67,7 @@ class FulltextQueryer:
             txt = re.sub(r, p, txt, flags=re.IGNORECASE)
         return txt
 
-    def question(self, txt, tbl="qa", min_match: float = 0.6):
+    def question(self, txt, tbl="qa", min_match=0.6):
         txt = re.sub(
             r"[ :|\r\n\t,，。？?/`!！&^%%()\[\]{}<>]+",
             " ",
