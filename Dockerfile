@@ -130,7 +130,14 @@ WORKDIR /ragflow
 # install dependencies from uv.lock file
 COPY pyproject.toml uv.lock ./
 
+# https://github.com/astral-sh/uv/issues/10462
+# uv records index url into uv.lock but doesn't failover among multiple indexes
 RUN --mount=type=cache,id=ragflow_uv,target=/root/.cache/uv,sharing=locked \
+    if [ "$NEED_MIRROR" == "1" ]; then \
+        sed -i 's|pypi.org|pypi.tuna.tsinghua.edu.cn|g' uv.lock; \
+    else \
+        sed -i 's|pypi.tuna.tsinghua.edu.cn|pypi.org|g' uv.lock; \
+    fi; \
     if [ "$LIGHTEN" == "1" ]; then \
         uv sync --python 3.10 --frozen; \
     else \
@@ -176,8 +183,8 @@ COPY graphrag graphrag
 COPY pyproject.toml uv.lock ./
 
 COPY docker/service_conf.yaml.template ./conf/service_conf.yaml.template
-COPY docker/entrypoint.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh
+COPY docker/entrypoint.sh docker/entrypoint_task_executor.sh ./
+RUN chmod +x ./entrypoint*.sh
 
 # Copy compiled web pages
 COPY --from=builder /ragflow/web/dist /ragflow/web/dist
