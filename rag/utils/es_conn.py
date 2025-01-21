@@ -171,6 +171,7 @@ class ESConnection(DocStoreConnection):
                 bqry.must.append(Q("query_string", fields=m.fields,
                                    type="best_fields", query=m.matching_text,
                                    minimum_should_match=minimum_should_match,
+                                   analyzer="ik_smart", # 使用 ik_smart 分析器，或者用 ik_max_word
                                    boost=1))
                 bqry.boost = 1.0 - vector_similarity_weight
 
