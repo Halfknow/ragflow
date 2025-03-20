@@ -81,7 +81,7 @@ export default {
       searchKnowledgePlaceholder: 'Buscar',
       noMoreData: 'Isso é tudo. Nada mais.',
     },
-    knowledgeDetail: {
+    knowledgeDetails: {
       dataset: 'Conjunto de dados',
       testing: 'Teste de recuperação',
       files: 'Arquivos',
@@ -107,7 +107,7 @@ export default {
       processDuration: 'Duração',
       progressMsg: 'Progresso',
       testingDescription:
-        'Realize um teste de recuperação para verificar se o RAGFlow pode recuperar o conteúdo pretendido para o LLM.',
+        'Realize um teste de recuperação para verificar se o RAGFlow pode recuperar o conteúdo pretendido para o LLM. Por favor, note que as alterações feitas aqui não são salvas automaticamente. Se você ajustar as configurações padrão aqui, como o peso de similaridade de palavras-chave, certifique-se de atualizar as configurações relacionadas de forma sincronizada nas configurações do assistente de chat ou nas configurações do operador de recuperação.',
       similarityThreshold: 'Limite de similaridade',
       similarityThresholdTip:
         'O RAGFlow emprega uma combinação de similaridade de palavras-chave ponderada e similaridade de cosseno vetorial ponderada, ou uma combinação de similaridade de palavras-chave ponderada e pontuação de reranking ponderada durante a recuperação. Este parâmetro define o limite para similaridades entre a consulta do usuário e os fragmentos. Qualquer fragmento com uma pontuação de similaridade abaixo deste limite será excluído dos resultados.',
@@ -170,7 +170,7 @@ export default {
         'Quando ativado, a planilha será analisada em tabelas HTML, com no máximo 256 linhas por tabela. Caso contrário, será analisada em pares chave-valor por linha.',
       autoKeywords: 'Palavras-chave automáticas',
       autoKeywordsTip:
-        'Extraia automaticamente N palavras-chave para cada fragmento para aumentar sua classificação para consultas que contenham essas palavras-chave. Você pode verificar ou atualizar as palavras-chave adicionadas para um fragmento na lista de fragmentos. Esteja ciente de que tokens extras serão consumidos pelo LLM especificado nas "Configurações do modelo do sistema".',
+        'Extraia automaticamente N palavras-chave de cada bloco para aumentar sua classificação em consultas que contenham essas palavras-chave. Esteja ciente de que o modelo de chat especificado nas "Configurações do modelo do sistema" consumirá tokens adicionais. Você pode verificar ou atualizar as palavras-chave adicionadas a um bloco na lista de blocos.',
       autoQuestions: 'Perguntas automáticas',
       autoQuestionsTip: `Extraia automaticamente N perguntas para cada fragmento para aumentar sua relevância em consultas que contenham essas perguntas. Você pode verificar ou atualizar as perguntas adicionadas a um fragmento na lista de fragmentos. Essa funcionalidade não interromperá o processo de fragmentação em caso de erro, exceto pelo fato de que pode adicionar um resultado vazio ao fragmento original. Esteja ciente de que tokens extras serão consumidos pelo LLM especificado nas 'Configurações do modelo do sistema'.`,
       redo: 'Deseja limpar os {{chunkNum}} fragmentos existentes?',
@@ -221,6 +221,7 @@ export default {
       upload: 'Enviar',
       english: 'Inglês',
       chinese: 'Chinês',
+      portugueseBr: 'Português (Brasil)',
       embeddingModelPlaceholder:
         'Por favor, selecione um modelo de incorporação',
       chunkMethodPlaceholder: 'Por favor, selecione um método de fragmentação',
@@ -242,7 +243,7 @@ export default {
       Os fragmentos terão granularidade compatível com 'ARTIGO', garantindo que todo o texto de nível superior seja incluído no fragmento.</p>`,
       manual: `<p>Apenas <b>PDF</b> é suportado.</p><p>
       Assumimos que o manual tem uma estrutura hierárquica de seções, usando os títulos das seções inferiores como unidade básica para fragmentação. Assim, figuras e tabelas na mesma seção não serão separadas, o que pode resultar em fragmentos maiores.</p>`,
-      naive: `<p>Os formatos de arquivo suportados são <b>DOCX, EXCEL, PPT, IMAGE, PDF, TXT, MD, JSON, EML, HTML</b>.</p>
+      naive: `<p>Os formatos de arquivo suportados são <b>DOCX, XLSX, XLS (Excel97~2003), PPT, PDF, TXT, JPEG, JPG, PNG, TIF, GIF, CSV, JSON, EML, HTML</b>.</p>
       <p>Este método fragmenta arquivos de maneira 'simples':</p>
       <p>
       <li>Usa um modelo de detecção visual para dividir os textos em segmentos menores.</li>
@@ -253,8 +254,8 @@ export default {
       presentation: `<p>Os formatos de arquivo suportados são <b>PDF</b>, <b>PPTX</b>.</p><p>
       Cada página do slide é tratada como um fragmento, com sua imagem em miniatura armazenada.</p><p>
       <i>Esse método de fragmentação é aplicado automaticamente a todos os arquivos PPT enviados, então não é necessário especificá-lo manualmente.</i></p>`,
-      qa: `<p>Este método suporta arquivos nos formatos <b>EXCEL</b> e <b>CSV/TXT</b>.</p>
-      <li>Se o arquivo estiver no formato <b>Excel</b>, ele deve conter duas colunas sem cabeçalhos: uma para perguntas e outra para respostas, com a coluna de perguntas antes da de respostas. Múltiplas planilhas são aceitas, desde que as colunas estejam corretamente estruturadas.</li>
+      qa: `<p>Este método suporta arquivos nos formatos <b>XLSX</b> e <b>CSV/TXT</b>.</p>
+      <li>Se o arquivo estiver no formato <b>XLSX</b>, ele deve conter duas colunas sem cabeçalhos: uma para perguntas e outra para respostas, com a coluna de perguntas antes da de respostas. Múltiplas planilhas são aceitas, desde que as colunas estejam corretamente estruturadas.</li>
       <li>Se o arquivo estiver no formato <b>CSV/TXT</b>, ele deve estar codificado em UTF-8 e usar TAB como delimitador para separar perguntas e respostas.</li>
       <p><i>Linhas de texto que não seguirem essas regras serão ignoradas, e cada par de Pergunta & Resposta será tratado como um fragmento distinto.</i></p>`,
       useRaptor: 'Usar RAPTOR para melhorar a recuperação',
@@ -506,7 +507,7 @@ export default {
       img2txtModel: 'Modelo Img2Txt',
       img2txtModelTip:
         'O modelo multimodal padrão que todos os novos bancos de conhecimento usarão. Ele pode descrever uma imagem ou vídeo.',
-      sequence2txtModel: 'Modelo Sequence2Txt',
+      sequence2txtModel: 'Modelo Speech2Txt',
       sequence2txtModelTip:
         'O modelo ASR padrão que todos os novos bancos de conhecimento usarão. Use este modelo para converter vozes em texto correspondente.',
       rerankModel: 'Modelo de Reordenação',
@@ -638,17 +639,18 @@ export default {
       newFolder: 'Nova Pasta',
       file: 'Arquivo',
       uploadFile: 'Carregar Arquivo',
+      parseOnCreation: 'Executar na criação',
       directory: 'Diretório',
       uploadTitle:
         'Clique ou arraste o arquivo para esta área para fazer o upload',
       uploadDescription:
-        'Suporta upload de um único arquivo ou múltiplos arquivos. É estritamente proibido o upload de dados da empresa ou outros arquivos proibidos.',
+        'O RAGFlow suporta o upload de arquivos de forma individual ou em lote. Para o RAGFlow implantado localmente: o limite total de tamanho de arquivo por upload é de 1GB, com um limite de upload em lote de 32 arquivos. Não há limite para o número total de arquivos por conta. Para o demo.ragflow.io: o limite total de tamanho de arquivo por upload é de 10MB, com cada arquivo não excedendo 10MB e um máximo de 128 arquivos por conta.',
       local: 'Uploads locais',
       s3: 'Uploads S3',
       preview: 'Pré-visualização',
       fileError: 'Erro no arquivo',
       uploadLimit:
-        'O tamanho do arquivo não pode exceder 10M, e o número total de arquivos não pode exceder 128',
+        'O RAGFlow suporta o upload de arquivos de forma individual ou em lote. Para o RAGFlow implantado localmente: o limite total de tamanho de arquivo por upload é de 1GB, com um limite de upload em lote de 32 arquivos. Não há limite para o número total de arquivos por conta. Para o demo.ragflow.io: o limite total de tamanho de arquivo por upload é de 10MB, com cada arquivo não excedendo 10MB e um máximo de 128 arquivos por conta.',
       destinationFolder: 'Pasta de destino',
     },
     flow: {
@@ -1104,8 +1106,8 @@ export default {
         lineBreak: 'Quebra de linha',
         tab: 'Tabulação',
         underline: 'Sublinhado',
-        diagonal: 'Diagonal',
-        minus: 'Menos',
+        diagonal: 'Forward slash',
+        minus: 'Dash',
         semicolon: 'Ponto e vírgula',
       },
       addVariable: 'Adicionar variável',
